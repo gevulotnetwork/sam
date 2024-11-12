@@ -1,0 +1,21 @@
+tendermint_node = "ws://127.0.0.1:26657/websocket"
+grpc_query = "http://127.0.0.1:9090"
+sara_grpc_url = "http://127.0.0.1:1606"
+
+[nomad]
+endpoint = "http://127.0.0.1:9646"
+files = "/tmp/nomad/alloc/"
+
+[cosmos]
+chain_id = "gevulot"
+account_address = "gvlt1l8s8afjml5n9qu2ph3c02qczdyl2urvfh054mh"
+pk = "empty"
+mnemonic = "about soap pepper ball town maid settle fashion cupboard finger acoustic illness asthma prepare spawn cube cabin boss key flock save such phrase section"
+gas_price = 1000
+gas_multiplier = 1.2
+
+[ipfs_handler]
+bind = "127.0.0.1:4003"
+
+[gpu]
+denylist = []

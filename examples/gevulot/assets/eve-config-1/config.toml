@@ -1,0 +1,21 @@
+tendermint_node = "ws://127.0.0.1:26657/websocket"
+grpc_query = "http://127.0.0.1:9090"
+sara_grpc_url = "http://127.0.0.1:1606"
+
+[nomad]
+endpoint = "http://127.0.0.1:9646"
+files = "/tmp/nomad/alloc/"
+
+[cosmos]
+chain_id = "gevulot"
+account_address = "gvlt1u5dcaxv5nwwdjyj9pull6d02t9j57j5979nxxd"
+pk = "empty"
+mnemonic = "idle valley unveil champion dove echo bright advance mind image penalty sand slender random wage embrace bench only boring veteran use arch spy stomach"
+gas_price = 1000
+gas_multiplier = 1.2
+
+[ipfs_handler]
+bind = "127.0.0.1:4002"
+
+[gpu]
+denylist = []

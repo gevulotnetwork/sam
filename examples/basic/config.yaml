@@ -1,0 +1,17 @@
+name: "basic"
+
+components:
+  - name: "caddy"
+    type: pod
+    start_by_default: true
+    dependencies: []
+    ports:
+      - host: 8080
+        container: 80
+    containers:
+      - name: "caddy"
+        image: "caddy:latest"
+        command: ["caddy", "file-server", "--root", "/srv/www"]
+        volumes:
+          - host: "./examples/basic/assets/www"
+            container: "/srv/www"
