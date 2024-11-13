@@ -51,7 +51,7 @@ describe("Default Chain Setup", || {
             require(resp == "running\n", "Expected sara-2 to be running, got " + resp);
         });
 
-        it("should have evetests-2 running", || {
+        it("should have eve-2 running", || {
             let resp = exec("podman container ps -a -f name=e2e-eve-2 --format json| jq -r '.[0].State'");
             require(resp == "running\n", "Expected eve-2 to be running, got " + resp);
         });

@@ -146,12 +146,11 @@ impl<E: Environment> Commands<E> {
         Ok(resp)
     }
 
-    pub fn log(state: Arc<Mutex<SharedState<E>>>, msg: &str) -> Result<(), Box<EvalAltResult>> {
-        let indention_level = {
-            let state = state.lock();
-            state.indention_level
-        };
-        print!("\n{}{}", " ".repeat(indention_level), msg);
+    pub fn log(context: NativeCallContext, state: Arc<Mutex<SharedState<E>>>, msg: &str) -> Result<(), Box<EvalAltResult>> {
+        println!();
+        let file = state.lock().current_file.as_ref().map(|e| e.clone()).unwrap_or("unknown".to_string());
+        let file = file.split('/').last().unwrap_or("unknown").to_string();
+        log::info!("{}:{}: {}", file, context.position().line().unwrap_or(0), msg);
         Ok(())
     }
 

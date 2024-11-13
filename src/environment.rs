@@ -1,4 +1,4 @@
-use std::{collections::HashSet, env::temp_dir, process::Stdio};
+use std::{collections::HashSet, process::Stdio};
 
 use tokio::process::Command;
 
@@ -129,6 +129,7 @@ impl ConfigurableEnvironment {
                 let mut cmd = Command::new("podman");
                 cmd.arg("run")
                     .arg("-d")
+                    .arg("--replace")
                     .arg("--name")
                     .arg(&component.name);
 
@@ -410,16 +411,10 @@ impl Environment for ConfigurableEnvironment {
         // Start all components in dependency order
         let mut started = std::collections::HashSet::new();
 
-        let mut remaining: Vec<_> = if self.cfg.components.iter().any(|c| c.start_by_default) {
-            self.cfg.components.iter()
-                .filter(|c| c.start_by_default)
-                .map(|c| c.name.clone())
-                .collect()
-        } else {
-            self.cfg.components.iter()
-                .map(|c| c.name.clone())
-                .collect()
-        };
+        let mut remaining: Vec<_> = self.cfg.components.iter()
+            .filter(|c| c.start_by_default)
+            .map(|c| c.name.clone())
+            .collect();
 
         while !remaining.is_empty() {
             let mut made_progress = false;

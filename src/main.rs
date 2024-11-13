@@ -41,7 +41,7 @@ fn setup_command_line_args() -> Command {
                     clap::Arg::new("script")
                         .short('s')
                         .long("script")
-                        .default_value("tests")
+                        .action(clap::ArgAction::Append)
                         .help("Test script or directory"),
                 )
                 .arg(
@@ -122,55 +122,89 @@ fn setup_command_line_args() -> Command {
 }
 
 async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
-    if sub_matches.get_flag("reset-once") {
+    log::debug!("Starting run_environment");
+    
+    log::debug!("Loading config file");
+    let mut cfg = Config::load(sub_matches.get_one::<String>("config").unwrap())?;
+    cfg.read_flags(sub_matches)?;
+    
+    if cfg.global.reset_once {
+        log::debug!("Reset-once flag detected, resetting environment");
         reset_environment(sub_matches).await?;
     }
 
-    let cfg = Config::load(sub_matches.get_one::<String>("config").unwrap())?;
-
+    let global_cfg = cfg.global.clone();
+    log::debug!("Creating configurable environment");
     let mut env = ConfigurableEnvironment::new(cfg);
+
+    log::debug!("Starting environment");
     env.start().await?;
 
-    if let Some(delay) = sub_matches.get_one::<String>("delay") {
+    if let Some(delay) = global_cfg.delay {
         log::info!("Delaying start of the tests by {}", delay);
-        let duration = humantime::parse_duration(delay)
+        log::debug!("Parsing delay duration: {}", delay);
+        let duration = humantime::parse_duration(&delay)
             .map_err(|e| Error::Other(format!("Failed to parse duration: {}", e)))?;
         tokio::time::sleep(duration).await;
     }
 
-    let repeat = sub_matches
-        .get_one::<u64>("repeat")
-        .map(|r| *r)
-        .unwrap_or(1);
+    let repeat = global_cfg.repeat.unwrap_or(1);
     if repeat > 1 {
         log::info!("Repeating the tests {} times", repeat);
     }
 
-    let module_dir = sub_matches
-        .get_one::<String>("module-dir")
-        .map(|s| s.to_owned())
-        .unwrap_or_else(|| {
-            let path = PathBuf::from(sub_matches.get_one::<String>("script").unwrap());
-            path.parent().unwrap().to_string_lossy().into_owned()
-        });
+    log::debug!("Setting up module directories");
+    let mut module_dirs = global_cfg.module_dirs.clone();
+    if module_dirs.is_empty() {
+        log::debug!("No module directories specified, using script directory");
+        let first_script = global_cfg
+            .scripts
+            .first()
+            .ok_or(Error::Config("No scripts found in config".to_string()))?;
+        let path = PathBuf::from(first_script);
+        if path.is_file() {
+            log::debug!("Using parent directory of script file: {}", first_script);
+            module_dirs.push(
+                path.parent()
+                    .ok_or(Error::Other(format!(
+                        "No parent directory found for script {}",
+                        first_script
+                    )))?
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+        } else if path.is_dir() {
+            log::debug!("Using script directory directly: {}", first_script);
+            module_dirs.push(path.to_string_lossy().into_owned());
+        } else {
+            return Err(Error::Other(format!(
+                "No script or directory found at {}",
+                first_script
+            )));
+        }
+    }
 
-    let mut engine = Engine::new(env, &module_dir);
+    log::debug!("Creating Rhai engine with module directories: {:?}", module_dirs);
+    let mut engine = Engine::new(env, &module_dirs);
 
-    if let Some(filter) = sub_matches.get_one::<String>("filter") {
+    if let Some(filter) = &global_cfg.filter {
+        log::debug!("Setting filter: {}", filter);
         engine.set_filter(filter.to_string());
     }
 
-    if let Some(skip) = sub_matches.get_one::<String>("skip") {
+    if let Some(skip) = &global_cfg.skip {
+        log::debug!("Setting skip: {}", skip);
         engine.set_skip(skip.to_string());
     }
 
-    for _ in 0..repeat {
-        if let Some(script) = sub_matches.get_one::<String>("script") {
+    for i in 0..repeat {
+        log::debug!("Starting iteration {} of {}", i + 1, repeat);
+        if let Some(script) = &global_cfg.scripts.first() {
             match engine
                 .run(PathBuf::from(script))
                 .map_err(|e| Error::Other(e.to_string()))
             {
-                Ok(_) => (),
+                Ok(_) => log::debug!("Script completed successfully"),
                 Err(e) => {
                     log::error!("Script failed: {}", e);
                     return Err(e);
@@ -181,11 +215,13 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
 
     if sub_matches.get_flag("keep-running") {
         log::info!("Press Ctrl-C to stop");
+        log::debug!("Waiting for Ctrl-C signal");
         tokio::signal::ctrl_c()
             .await
             .map_err(|e| Error::Other(e.to_string()))?;
     }
 
+    log::debug!("run_environment completed successfully");
     Ok(())
 }
 

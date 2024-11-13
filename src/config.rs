@@ -1,3 +1,4 @@
+use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 
 use crate::Error;
@@ -10,13 +11,39 @@ pub struct Config {
     #[serde(default)]
     pub reset: Vec<String>,
     #[serde(default)]
-    pub tests: Vec<String>,
+    pub global: Global,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Global {
+    #[serde(default)]
+    pub scripts: Vec<String>,
+    #[serde(default)]
+    pub keep_running: bool,
+    pub delay: Option<String>,
+    pub repeat: Option<u64>,
+    pub filter: Option<String>,
+    pub skip: Option<String>,
+    #[serde(default)]
+    pub reset_once: bool,
+    #[serde(default)]
+    pub force: bool,
+    #[serde(default)]
+    pub module_dirs: Vec<String>
+}
+
+impl Default for Global {
+    fn default() -> Self {
+        Global { scripts: vec![], keep_running: false, delay: None, repeat: None, filter: None, skip: None, reset_once: false, force: false, module_dirs: vec![] }
+    }
 }
 
 impl Config {
     pub fn load(path: &str) -> Result<Self, Error> {
         let cfg = std::fs::read_to_string(path).map_err(|e| Error::Config(e.to_string()))?;
-        Self::from_yaml(&cfg).map_err(|e| Error::Config(e.to_string()))
+        let cfg = Self::from_yaml(&cfg).map_err(|e| Error::Config(e.to_string()))?;
+        log::debug!("Loaded config from file {}: {:#?}", path, cfg);
+        Ok(cfg)
     }
 
     pub fn from_yaml(yaml: &str) -> Result<Self, serde_yaml::Error> {
@@ -25,6 +52,59 @@ impl Config {
 
     pub fn to_yaml(&self) -> Result<String, serde_yaml::Error> {
         serde_yaml::to_string(self)
+    }
+
+    pub fn read_flags(&mut self, args: &ArgMatches) -> Result<(), Error> {
+        if let Some(scripts) = args.get_many::<String>("script") {
+            let all_scripts: Vec<String> = scripts.map(|s| s.to_string()).collect();
+            if !all_scripts.is_empty() {
+                log::debug!("Setting scripts from command line: {:?}", all_scripts);
+                self.global.scripts = all_scripts;
+            }
+        }
+
+        if let Some(delay) = args.get_one::<String>("delay") {
+            log::debug!("Setting delay from command line: {}", delay);
+            self.global.delay = Some(delay.to_string());
+        }
+
+        if let Some(repeat) = args.get_one::<u64>("repeat") {
+            log::debug!("Setting repeat from command line: {}", repeat);
+            self.global.repeat = Some(*repeat);
+        }
+
+        if let Some(filter) = args.get_one::<String>("filter") {
+            log::debug!("Setting filter from command line: {}", filter);
+            self.global.filter = Some(filter.to_string());
+        }
+
+        if let Some(skip) = args.get_one::<String>("skip") {
+            log::debug!("Setting skip from command line: {}", skip);
+            self.global.skip = Some(skip.to_string());
+        }
+
+        if let Some(module_dirs) = args.get_many::<String>("module-dir") {
+            let dirs: Vec<String> = module_dirs.map(|s| s.to_string()).collect();
+            log::debug!("Setting module directories from command line: {:?}", dirs);
+            self.global.module_dirs = dirs;
+        }
+
+        if args.get_flag("keep-running") {
+            log::debug!("Setting keep_running from command line: true");
+            self.global.keep_running = true;
+        }
+
+        if args.get_flag("reset-once") {
+            log::debug!("Setting reset_once from command line: true");
+            self.global.reset_once = true;
+        }
+
+        if args.get_flag("force") {
+            log::debug!("Setting force from command line: true");
+            self.global.force = true;
+        }
+
+        Ok(())
     }
 }
 
@@ -75,11 +155,6 @@ pub struct Container {
 pub struct Volume {
     pub host: String,
     pub container: String,
-}
-
-pub struct Test {
-    pub path: String,
-
 }
 
 impl Config {

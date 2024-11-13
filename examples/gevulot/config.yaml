@@ -106,9 +106,17 @@ components:
     command: ["nomad", "agent", "-config=./examples/gevulot/assets/nomad/config.hcl", "-dev"]
 
 reset:
-  - "sudo rm -rf ./examples/gevulot/assets/ipfs-data-1"
-  - "sudo rm -rf ./examples/gevulot/assets/ipfs-data-2" 
-  - "mkdir -p ./examples/gevulot/assets/ipfs-data-1"
-  - "mkdir -p ./examples/gevulot/assets/ipfs-data-2"
-  - "git checkout -- ./examples/gevulot/assets"
-  - "git clean -f -d ./examples/gevulot/assets"
+  - "podman run -v .:/work -w /work alpine rm -rf ./examples/gevulot/assets/ipfs-data-1 > /dev/null 2>&1"
+  - "podman run -v .:/work -w /work alpine rm -rf ./examples/gevulot/assets/ipfs-data-2 > /dev/null 2>&1" 
+  - "mkdir -p ./examples/gevulot/assets/ipfs-data-1 > /dev/null 2>&1"
+  - "mkdir -p ./examples/gevulot/assets/ipfs-data-2 > /dev/null 2>&1"
+  - "git checkout -- ./examples/gevulot/assets > /dev/null 2>&1"
+  - "git clean -f -d ./examples/gevulot/assets > /dev/null 2>&1"
+
+global:
+  scripts:
+    - "./examples/gevulot/tests"
+  module_dirs:
+    - "./examples/gevulot/modules"
+  reset_once: true
+

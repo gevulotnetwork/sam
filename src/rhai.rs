@@ -1,5 +1,5 @@
 use parking_lot::Mutex;
-use rhai::module_resolvers::FileModuleResolver;
+use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
 use rhai::{
     Engine as RhaiEngine, EvalAltResult, FnPtr, NativeCallContext, Position, Scope
 };
@@ -21,12 +21,13 @@ pub struct SharedState<E: Environment> {
     pub filter_expression: Option<String>,
     pub skip_expression: Option<String>,
     pub current_test_stack: Vec<String>,
+    pub current_file: Option<String>,
     pub env: E,
 
 }
 
 impl<E: Environment + 'static> Engine<E> {
-    pub fn new(env: E, module_dir: &str) -> Self {
+    pub fn new(env: E, module_dirs: &[String]) -> Self {
         let mut engine = Engine {
             engine: RhaiEngine::new(),
             scope: Scope::new(),
@@ -38,6 +39,7 @@ impl<E: Environment + 'static> Engine<E> {
                 filter_expression: None,
                 skip_expression: None,
                 current_test_stack: Vec::new(),
+                current_file: None,
                 env,
             })),
         };
@@ -45,10 +47,13 @@ impl<E: Environment + 'static> Engine<E> {
         engine.engine.set_max_call_levels(256);
         engine.engine.set_max_expr_depths(256, 256);
 
-
-        let mut resolver = FileModuleResolver::new();
-        resolver.set_base_path(module_dir);
-        engine.engine.set_module_resolver(resolver);
+        let mut resolvers = ModuleResolversCollection::new();
+        for module_dir in module_dirs {
+            let mut resolver = FileModuleResolver::new();
+            resolver.set_base_path(module_dir);
+            resolvers.push(resolver);
+        }
+        engine.engine.set_module_resolver(resolvers);
 
         let state = engine.shared_state.clone();
         engine.engine.register_fn(
@@ -77,8 +82,8 @@ impl<E: Environment + 'static> Engine<E> {
         let state = engine.shared_state.clone();
         engine.engine.register_fn(
             "log",
-            move|msg: &str| -> Result<(), Box<EvalAltResult>> {
-                Commands::log(state.clone(), msg)
+            move|context: NativeCallContext, msg: &str| -> Result<(), Box<EvalAltResult>> {
+                Commands::<E>::log(context, state.clone(), msg)
             },
         );
 
@@ -147,7 +152,16 @@ impl<E: Environment + 'static> Engine<E> {
 
     pub fn run_file(&mut self, path: PathBuf) -> Result<(), Box<EvalAltResult>> {
         log::info!("Running script file {}", path.display());
-        self.engine.run_file_with_scope(&mut self.scope, path)
+        {
+            let mut state = self.shared_state.lock();
+            state.current_file = Some(path.display().to_string());
+        }
+        self.engine.run_file_with_scope(&mut self.scope, path)?;
+        {
+            let mut state = self.shared_state.lock();
+            state.current_file = None;
+        }
+        Ok(())
     }
 
     pub fn run_directory(&mut self, path: PathBuf) -> Result<(), Box<EvalAltResult>> {

@@ -3,8 +3,6 @@ name: "basic"
 components:
   - name: "caddy"
     type: pod
-    start_by_default: true
-    dependencies: []
     ports:
       - host: 8080
         container: 80
@@ -15,3 +13,16 @@ components:
         volumes:
           - host: "./examples/basic/assets/www"
             container: "/srv/www"
+
+global:
+  scripts:
+    - "./examples/basic/tests.rhai"
+  module_dirs:
+    - "./examples/basic/modules"
+  keep_running: false
+  delay: "0s"
+  repeat: 1
+  filter: null
+  skip: null 
+  reset_once: false
+  force: false
