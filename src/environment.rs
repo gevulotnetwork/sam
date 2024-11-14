@@ -18,8 +18,8 @@ pub struct ConfigurableEnvironment {
 }
 
 impl ConfigurableEnvironment {
-    pub fn new(cfg: Config) -> Self {
-        Self { cfg, is_running: HashSet::new() }
+    pub fn new(cfg: &Config) -> Self {
+        Self { cfg: cfg.clone(), is_running: HashSet::new() }
     }
 
     async fn make_sure_network_exists(&self) -> Result<(), Error> {
@@ -362,6 +362,7 @@ impl ConfigurableEnvironment {
                 let output = Command::new("podman")
                     .arg("rm")
                     .arg("-f")
+                    .arg("-t=0")
                     .arg(container_name)
                     .output()
                     .await

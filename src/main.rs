@@ -135,7 +135,7 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
 
     let global_cfg = cfg.global.clone();
     log::debug!("Creating configurable environment");
-    let mut env = ConfigurableEnvironment::new(cfg);
+    let mut env = ConfigurableEnvironment::new(&cfg);
 
     log::debug!("Starting environment");
     env.start().await?;
@@ -199,14 +199,14 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
 
     for i in 0..repeat {
         log::debug!("Starting iteration {} of {}", i + 1, repeat);
-        if let Some(script) = &global_cfg.scripts.first() {
+        for script in &global_cfg.scripts {
             match engine
                 .run(PathBuf::from(script))
                 .map_err(|e| Error::Other(e.to_string()))
             {
-                Ok(_) => log::debug!("Script completed successfully"),
+                Ok(_) => log::debug!("Script {} completed successfully", script),
                 Err(e) => {
-                    log::error!("Script failed: {}", e);
+                    log::error!("Script {} failed: {}", script, e);
                     return Err(e);
                 }
             };

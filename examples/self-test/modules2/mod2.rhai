@@ -1,0 +1,1 @@
+export const CONSTANT_FROM_OTHER_MODULE_DIR = 42;

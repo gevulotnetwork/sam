@@ -1,0 +1,31 @@
+name: self-test
+global:
+  scripts:
+    - examples/self-test/tests/smoke.rhai
+    - examples/self-test/tests/modules.rhai
+    - examples/self-test/tests/builtins.rhai
+    - examples/self-test/tests/components.rhai
+  module_dirs:
+    - examples/self-test/modules
+    - examples/self-test/modules2
+  reset_once: true
+
+components:
+  - name: test-container
+    type: container
+    image: alpine:latest
+    command: ["sleep", "1000000"]
+
+  - name: test-pod
+    type: pod
+    containers:
+      - name: alpine
+        image: alpine:latest
+        command: ["sleep", "1000000"]
+
+  - name: test-process
+    type: process
+    command: ["sleep", "1000000"]
+
+reset:
+  - rm -rf .smoke-test
