@@ -6,6 +6,7 @@ use crate::Error;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub name: String,
+    pub base: Option<String>,
     #[serde(default)]
     pub components: Vec<Component>,
     #[serde(default)]
@@ -41,9 +42,48 @@ impl Default for Global {
 impl Config {
     pub fn load(path: &str) -> Result<Self, Error> {
         let cfg = std::fs::read_to_string(path).map_err(|e| Error::Config(e.to_string()))?;
-        let cfg = Self::from_yaml(&cfg).map_err(|e| Error::Config(e.to_string()))?;
-        log::debug!("Loaded config from file {}: {:#?}", path, cfg);
+        let mut cfg = Self::from_yaml(&cfg).map_err(|e| Error::Config(e.to_string()))?;
+        if let Some(base) = &cfg.base {
+            let base_cfg = Self::load(&base)?;
+            cfg = base_cfg.merge(&cfg)?;
+        }
         Ok(cfg)
+    }
+
+    pub fn merge(&self, other: &Self) -> Result<Self, Error> {
+        let mut result = self.clone();
+        for component in &other.components {
+            if let Some(pos) = result.components.iter().position(|c| c.name == component.name) {
+                result.components[pos] = component.clone();
+            } else {
+                result.components.push(component.clone());
+            }
+        }
+
+        // Merge global settings
+        if !other.global.scripts.is_empty() {
+            result.global.scripts = other.global.scripts.clone();
+        }
+        if !other.global.module_dirs.is_empty() {
+            result.global.module_dirs = other.global.module_dirs.clone();
+        }
+        if other.global.delay.is_some() {
+            result.global.delay = other.global.delay.clone();
+        }
+        if other.global.repeat.is_some() {
+            result.global.repeat = other.global.repeat;
+        }
+        if other.global.filter.is_some() {
+            result.global.filter = other.global.filter.clone();
+        }
+        if other.global.skip.is_some() {
+            result.global.skip = other.global.skip.clone();
+        }
+        result.global.reset_once |= other.global.reset_once;
+        result.global.force |= other.global.force;
+        result.global.keep_running |= other.global.keep_running;
+
+        Ok(result)
     }
 
     pub fn from_yaml(yaml: &str) -> Result<Self, serde_yaml::Error> {

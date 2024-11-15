@@ -1,0 +1,12 @@
+name: config_with_base
+base: examples/self-test/config.yaml
+
+components:
+  - name: test-container2
+    type: container
+    image: alpine:latest
+    command: ["sleep", "1000000"]
+
+global:
+  scripts:
+    - examples/self-test/tests/base_config.rhai
