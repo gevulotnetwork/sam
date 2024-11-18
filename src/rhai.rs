@@ -1,29 +1,18 @@
 use parking_lot::Mutex;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
 use rhai::{
-    Engine as RhaiEngine, EvalAltResult, FnPtr, NativeCallContext, Position, Scope
+    Engine as RhaiEngine, EvalAltResult, Position, Scope
 };
 use std::{path::PathBuf, sync::Arc};
 
 use crate::environment::Environment;
-use crate::commands::Commands;
+use crate::commands::register_commands;
+use crate::state::SharedState;
+
 pub struct Engine<E: Environment> {
     engine: RhaiEngine,
     scope: Scope<'static>,
     shared_state: Arc<Mutex<SharedState<E>>>,
-}
-
-pub struct SharedState<E: Environment> {
-    pub indention_level: usize,
-    pub test_count: usize,
-    pub error_count: usize,
-    pub nested_test_counts: Vec<(usize, usize)>, // (test_count, error_count) stack for nested describes
-    pub filter_expression: Option<String>,
-    pub skip_expression: Option<String>,
-    pub current_test_stack: Vec<String>,
-    pub current_file: Option<String>,
-    pub env: E,
-
 }
 
 impl<E: Environment + 'static> Engine<E> {
@@ -31,17 +20,7 @@ impl<E: Environment + 'static> Engine<E> {
         let mut engine = Engine {
             engine: RhaiEngine::new(),
             scope: Scope::new(),
-            shared_state: Arc::new(Mutex::new(SharedState {
-                indention_level: 1,
-                test_count: 0,
-                error_count: 0,
-                nested_test_counts: Vec::new(),
-                filter_expression: None,
-                skip_expression: None,
-                current_test_stack: Vec::new(),
-                current_file: None,
-                env,
-            })),
+            shared_state: Arc::new(Mutex::new(SharedState::new(env))),
         };
 
         engine.engine.set_max_call_levels(256);
@@ -55,98 +34,8 @@ impl<E: Environment + 'static> Engine<E> {
         }
         engine.engine.set_module_resolver(resolvers);
 
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "describe",
-            move |context: NativeCallContext, msg: &str, cb: FnPtr| -> Result<(), Box<EvalAltResult>> {
-                Commands::describe(state.clone(), context, msg, cb)
-            },
-        );
-
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "it",
-            move|context: NativeCallContext, msg: &str, cb: FnPtr| -> Result<(), Box<EvalAltResult>> {
-                Commands::it(state.clone(), context, msg, cb)
-            },
-        );
-
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "require",
-            move|context: NativeCallContext, success: bool, msg: &str| -> Result<(), Box<EvalAltResult>> {
-                Commands::require(state.clone(), context, success, msg)
-            },
-        );
-
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "log",
-            move|context: NativeCallContext, msg: &str| -> Result<(), Box<EvalAltResult>> {
-                Commands::<E>::log(context, state.clone(), msg)
-            },
-        );
-
-        engine.engine.register_fn(
-            "exec",
-            move|command: &str| -> Result<String, Box<EvalAltResult>> {
-                Commands::<E>::exec(command)
-            },
-        );
-
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "start_component",
-            move|component: &str| -> Result<(), Box<EvalAltResult>> {
-                tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(Commands::<E>::start_component(state.clone(), component))
-                })
-            },
-        );
-
-        let state = engine.shared_state.clone();
-        engine.engine.register_fn(
-            "stop_component",
-            move|component: &str| -> Result<(), Box<EvalAltResult>> {
-                tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(Commands::<E>::stop_component(state.clone(), component))
-                })
-            },
-        );
-
-        engine.engine.register_fn(
-            "set_env",
-            |key: &str, value: &str| -> Result<(), Box<EvalAltResult>> {
-                Commands::<E>::set_env(key, value)
-            },
-        );
-
-        engine.engine.register_fn(
-            "sleep", // overload!
-            |duration: &str| -> Result<(), Box<EvalAltResult>> {
-                log::debug!("calling sleep_str with {}", duration);
-                Commands::<E>::sleep_str(duration)
-            },
-        );
-
-        engine.engine.register_fn(
-            "wait_until",
-            |context: NativeCallContext, condition: FnPtr, timeout: i64| -> Result<(), Box<EvalAltResult>> {
-                Commands::<E>::wait_until(context, condition, timeout)
-            },
-        );
-
-        engine.engine.register_fn(
-            "wait_until",
-            |context: NativeCallContext, condition: FnPtr, timeout: &str| -> Result<(), Box<EvalAltResult>> {
-                let duration = humantime::parse_duration(timeout).map_err(|e| {
-                    let msg = format!("Invalid duration: {}", e);
-                    Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
-                })?;
-                Commands::<E>::wait_until(context, condition, duration.as_millis() as i64)
-            },
-        );
-
+        register_commands(&mut engine.engine, engine.shared_state.clone());
+        
         engine
     }
 

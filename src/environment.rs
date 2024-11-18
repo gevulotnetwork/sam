@@ -52,10 +52,8 @@ impl ConfigurableEnvironment {
         while let Some(comp) = queue.pop() {
             if let Some(component) = self.cfg.get_component(&comp) {
                 for dep in &component.dependencies {
-                    if !self.is_running.contains(dep) {
-                        if deps.insert(dep.clone()) {
-                            queue.push(dep.clone());
-                        }
+                    if !self.is_running.contains(dep) && deps.insert(dep.clone()) {
+                        queue.push(dep.clone());
                     }
                 }
             }
@@ -69,7 +67,7 @@ impl ConfigurableEnvironment {
             let mut made_progress = false;
             
             remaining.retain(|dep_name| {
-                let component = self.cfg.get_component(dep_name).expect(&format!("Component {} not found in config", dep_name));
+                let component = self.cfg.get_component(dep_name).unwrap_or_else(|| panic!("Component {} not found in config", dep_name));
                 
                 // Check if all dependencies are started
                 let deps_satisfied = component.dependencies.iter()
@@ -160,7 +158,7 @@ impl ConfigurableEnvironment {
                 }
 
                 // Add image
-                cmd.arg(&component.image.as_ref().ok_or_else(|| {
+                cmd.arg(component.image.as_ref().ok_or_else(|| {
                     Error::Config(format!("Image not specified for component {:?}", component))
                 })?);
 
@@ -240,7 +238,7 @@ impl ConfigurableEnvironment {
                     cmd.arg(&container.image);
 
                     // Add command if specified
-                    if container.command.len() > 0 {
+                    if !container.command.is_empty() {
                         for arg in &container.command {
                             cmd.arg(arg);
                         }
@@ -260,7 +258,7 @@ impl ConfigurableEnvironment {
                 let command = component.command.as_ref().ok_or_else(|| {
                     Error::Config(format!("Command not specified for component {:?}", component))
                 })?;
-                if command.len() == 0 {
+                if command.is_empty() {
                     return Err(Error::Config(format!("Command is empty for component {:?}", component)));
                 }
 
@@ -398,7 +396,7 @@ impl ConfigurableEnvironment {
             }
         }
 
-        self.is_running.remove(&component_name.to_string());
+        self.is_running.remove(component_name);
 
         Ok(())
     }
@@ -471,7 +469,7 @@ impl Environment for ConfigurableEnvironment {
             .map(|c| c.name.clone())
             .filter(|name| !self.is_running.contains(name))
             .collect();
-        let mut remaining: Vec<_> = self.is_running.iter().map(|c| c.clone()).collect();
+        let mut remaining: Vec<_> = self.is_running.iter().cloned().collect();
 
         while !remaining.is_empty() {
             let mut made_progress = false;
@@ -552,3 +550,4 @@ impl Drop for ConfigurableEnvironment {
         });
     }
 }
+

@@ -8,5 +8,7 @@ components:
     command: ["sleep", "1000000"]
 
 global:
+  repeat: 2
+  delay: "100ms"
   scripts:
     - examples/self-test/tests/base_config.rhai

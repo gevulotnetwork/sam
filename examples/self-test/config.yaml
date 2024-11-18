@@ -5,9 +5,11 @@ global:
     - examples/self-test/tests/modules.rhai
     - examples/self-test/tests/builtins.rhai
     - examples/self-test/tests/components.rhai
+    - examples/self-test/tests/stdlib.rhai
   module_dirs:
     - examples/self-test/modules
     - examples/self-test/modules2
+    - src/stdlib
   reset_once: true
 
 components:

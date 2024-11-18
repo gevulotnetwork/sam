@@ -50,4 +50,16 @@ describe("Builtin Functions", || {
             require(true, "Error was caught");
         }
     });
+
+    // it("should be able to assert a failure", || {
+    //     assert(false, "This test should fail");
+    //     assert(true, "This test should pass");
+    //     assert(false, "This other test should fail as well");
+    // });
+
+    // it("should be able to require a failure", || {
+    //     assert(false, "This assertion should fail");
+    //     require(false, "This requirement should fail");
+    //     assert(false, "This assertion should not appear in the output, the test is over");
+    // });
 });

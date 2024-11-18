@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod environment;
 mod rhai;
+mod state;
 
 use std::path::PathBuf;
 
@@ -137,6 +138,7 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
     log::debug!("Creating configurable environment");
     let mut env = ConfigurableEnvironment::new(&cfg);
 
+
     log::debug!("Starting environment");
     env.start().await?;
 
@@ -231,7 +233,7 @@ async fn reset_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
     let cfg = Config::load(sub_matches.get_one::<String>("config").unwrap())?;
     for command in cfg.reset.iter() {
         tokio::process::Command::new("sh")
-            .args(["-c", &command])
+            .args(["-c", command])
             .spawn()
             .map_err(|e| Error::Other(e.to_string()))?
             .wait()

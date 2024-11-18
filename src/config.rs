@@ -16,6 +16,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Default)]
 pub struct Global {
     #[serde(default)]
     pub scripts: Vec<String>,
@@ -33,18 +34,13 @@ pub struct Global {
     pub module_dirs: Vec<String>
 }
 
-impl Default for Global {
-    fn default() -> Self {
-        Global { scripts: vec![], keep_running: false, delay: None, repeat: None, filter: None, skip: None, reset_once: false, force: false, module_dirs: vec![] }
-    }
-}
 
 impl Config {
     pub fn load(path: &str) -> Result<Self, Error> {
         let cfg = std::fs::read_to_string(path).map_err(|e| Error::Config(e.to_string()))?;
         let mut cfg = Self::from_yaml(&cfg).map_err(|e| Error::Config(e.to_string()))?;
         if let Some(base) = &cfg.base {
-            let base_cfg = Self::load(&base)?;
+            let base_cfg = Self::load(base)?;
             cfg = base_cfg.merge(&cfg)?;
         }
         Ok(cfg)
