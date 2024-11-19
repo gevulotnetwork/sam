@@ -12,7 +12,6 @@ pub struct Commands<E: Environment> {
 }
 
 impl<E: Environment> Commands<E> {
-
     fn print_indented(msg: &str, indention_level: usize) {
         let prefix = format!(" \x1b[32mTEST\x1b[0m{}", "  ".repeat(indention_level));
         if msg.contains('\n') {
@@ -43,7 +42,7 @@ impl<E: Environment> Commands<E> {
 
         Self::print_indented(
             &format!("Testing \x1b[3m{}\x1b[0m ...\n", msg),
-            indention_level - 1
+            indention_level - 1,
         );
 
         let start = std::time::Instant::now();
@@ -58,8 +57,12 @@ impl<E: Environment> Commands<E> {
                     );
                 } else if state.test_count == 0 {
                     Self::print_indented(
-                        &format!("Testing \x1b[3m{}\x1b[0m \x1b[33mskipped\x1b[0m! ⏭️ (no tests) ({})\n", msg, humantime::format_duration(duration)),
-                        indention_level - 1
+                        &format!(
+                            "Testing \x1b[3m{}\x1b[0m \x1b[33mskipped\x1b[0m! ⏭️ (no tests) ({})\n",
+                            msg,
+                            humantime::format_duration(duration)
+                        ),
+                        indention_level - 1,
                     );
                 } else {
                     Self::print_indented(
@@ -75,8 +78,13 @@ impl<E: Environment> Commands<E> {
             Err(e) => {
                 let duration = start.elapsed();
                 Self::print_indented(
-                    &format!("Testing \x1b[3m{}\x1b[0m \x1b[31mfailed\x1b[0m! 😭: {} ({})\n", msg, e, humantime::format_duration(duration)),
-                    indention_level - 1
+                    &format!(
+                        "Testing \x1b[3m{}\x1b[0m \x1b[31mfailed\x1b[0m! 😭: {} ({})\n",
+                        msg,
+                        e,
+                        humantime::format_duration(duration)
+                    ),
+                    indention_level - 1,
                 );
                 let mut state = state.lock();
                 state.nested_test_counts.pop(); // Clean up the stack on error
@@ -102,7 +110,7 @@ impl<E: Environment> Commands<E> {
             if Commands::should_skip(&state) {
                 Self::print_indented(
                     &format!("Skipping \x1b[3m{}\x1b[0m ⏭️\n", msg),
-                    state.indention_level
+                    state.indention_level,
                 );
                 state.current_test_stack.pop();
                 return Ok(());
@@ -110,10 +118,7 @@ impl<E: Environment> Commands<E> {
             state.test_count += 1;
             state.indention_level
         };
-        Self::print_indented(
-            &format!("It \x1b[3m{}\x1b[0m...", msg),
-            indention_level
-        );
+        Self::print_indented(&format!("It \x1b[3m{}\x1b[0m...", msg), indention_level);
         std::io::stdout().flush().unwrap();
 
         let start = std::time::Instant::now();
@@ -136,8 +141,11 @@ impl<E: Environment> Commands<E> {
                         .filter(|a| !a.success)
                     {
                         Self::print_indented(
-                            &format!("\x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m", assertion.message),
-                            state.indention_level + 1
+                            &format!(
+                                "\x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m",
+                                assertion.message
+                            ),
+                            state.indention_level + 1,
                         );
                     }
                 }
@@ -153,8 +161,11 @@ impl<E: Environment> Commands<E> {
                     .filter(|a| !a.success)
                 {
                     Self::print_indented(
-                        &format!(" - \x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m", assertion.message),
-                        state.indention_level
+                        &format!(
+                            " - \x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m",
+                            assertion.message
+                        ),
+                        state.indention_level,
                     );
                 }
                 state.error_count += 1;
@@ -191,9 +202,7 @@ impl<E: Environment> Commands<E> {
             name: assertion_name,
             success,
             message: msg.to_string(),
-            file: state
-                .current_file.clone()
-                .unwrap_or("unknown".to_string()),
+            file: state.current_file.clone().unwrap_or("unknown".to_string()),
             line: context.position().line().unwrap_or(0),
         };
         state.push_assertion(assertion);
@@ -217,21 +226,14 @@ impl<E: Environment> Commands<E> {
         if !success {
             let expected_str = expected.to_string();
             let actual_str = actual.to_string();
-            let diff = SimpleDiff::from_str(
-                &expected_str,
-                &actual_str,
-                "EXPECTED",
-                "ACTUAL",
-            );
+            let diff = SimpleDiff::from_str(&expected_str, &actual_str, "EXPECTED", "ACTUAL");
             message = format!("{}:\n{}", msg, diff);
         }
         let assertion = Assertion {
             name: assertion_name,
             success,
             message,
-            file: state
-                .current_file.clone()
-                .unwrap_or("unknown".to_string()),
+            file: state.current_file.clone().unwrap_or("unknown".to_string()),
             line: context.position().line().unwrap_or(0),
         };
         state.push_assertion(assertion);
@@ -278,7 +280,8 @@ impl<E: Environment> Commands<E> {
         println!();
         let file = state
             .lock()
-            .current_file.clone()
+            .current_file
+            .clone()
             .unwrap_or("unknown".to_string());
         let file = file.split('/').last().unwrap_or("unknown").to_string();
         log::info!(
@@ -301,17 +304,25 @@ impl<E: Environment> Commands<E> {
         timeout: i64,
     ) -> Result<(), Box<EvalAltResult>> {
         let start = std::time::Instant::now();
-        while !condition.call_within_context::<bool>(&context, ()).unwrap() {
-            if start.elapsed().as_millis() > timeout as u128 {
-                let msg = "Timeout waiting for condition".to_string();
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                    msg.into(),
-                    Position::NONE,
-                )));
+        while let Ok(result) = condition.call_within_context::<bool>(&context, ()) {
+            if !result {
+                if start.elapsed().as_millis() > timeout as u128 {
+                    let msg = "Timeout waiting for condition".to_string();
+                    return Err(Box::new(EvalAltResult::ErrorRuntime(
+                        msg.into(),
+                        Position::NONE,
+                    )));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            } else {
+                return Ok(());
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        Ok(())
+
+        Err(Box::new(EvalAltResult::ErrorRuntime(
+            "Failed to evaluate condition".into(),
+            Position::NONE,
+        )))
     }
 
     pub fn sleep_str(duration: &str) -> Result<(), Box<EvalAltResult>> {
@@ -406,7 +417,10 @@ impl<E: Environment> Commands<E> {
     }
 }
 
-pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: Arc<Mutex<SharedState<E>>>) {
+pub fn register_commands<E: Environment + 'static>(
+    engine: &mut Engine,
+    state: Arc<Mutex<SharedState<E>>>,
+) {
     let state_clone = state.clone();
     engine.register_fn(
         "describe",
@@ -426,7 +440,10 @@ pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: A
     let state_clone = state.clone();
     engine.register_fn(
         "require",
-        move |context: NativeCallContext, success: bool, msg: &str| -> Result<(), Box<EvalAltResult>> {
+        move |context: NativeCallContext,
+              success: bool,
+              msg: &str|
+              -> Result<(), Box<EvalAltResult>> {
             Commands::<E>::require(state_clone.clone(), context, success, msg)
         },
     );
@@ -434,31 +451,29 @@ pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: A
     let state_clone = state.clone();
     engine.register_fn(
         "assert",
-        move |context: NativeCallContext, success: bool, msg: &str| -> Result<(), Box<EvalAltResult>> {
+        move |context: NativeCallContext,
+              success: bool,
+              msg: &str|
+              -> Result<(), Box<EvalAltResult>> {
             Commands::<E>::assert(state_clone.clone(), context, success, msg)
         },
     );
 
-    engine.register_fn(
-        "diff",
-        move |expected: &str, actual: &str| -> String {
-            Commands::<E>::diff(expected, actual)
-        },
-    );
+    engine.register_fn("diff", move |expected: &str, actual: &str| -> String {
+        Commands::<E>::diff(expected, actual)
+    });
 
     let state_clone = state.clone();
     engine.register_fn(
         "log",
         move |context: NativeCallContext, msg: &str| -> Result<(), Box<EvalAltResult>> {
-                Commands::<E>::log(context, state_clone.clone(), msg)
+            Commands::<E>::log(context, state_clone.clone(), msg)
         },
     );
 
     engine.register_fn(
         "exec",
-        move |command: &str| -> Result<String, Box<EvalAltResult>> {
-            Commands::<E>::exec(command)
-        },
+        move |command: &str| -> Result<String, Box<EvalAltResult>> { Commands::<E>::exec(command) },
     );
 
     let state_clone = state.clone();
@@ -466,7 +481,10 @@ pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: A
         "start_component",
         move |component: &str| -> Result<(), Box<EvalAltResult>> {
             tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(Commands::<E>::start_component(state_clone.clone(), component))
+                tokio::runtime::Handle::current().block_on(Commands::<E>::start_component(
+                    state_clone.clone(),
+                    component,
+                ))
             })
         },
     );
@@ -476,7 +494,10 @@ pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: A
         "stop_component",
         move |component: &str| -> Result<(), Box<EvalAltResult>> {
             tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(Commands::<E>::stop_component(state_clone.clone(), component))
+                tokio::runtime::Handle::current().block_on(Commands::<E>::stop_component(
+                    state_clone.clone(),
+                    component,
+                ))
             })
         },
     );
@@ -490,21 +511,25 @@ pub fn register_commands<E: Environment + 'static>(engine: &mut Engine, state: A
 
     engine.register_fn(
         "sleep",
-        |duration: &str| -> Result<(), Box<EvalAltResult>> {
-            Commands::<E>::sleep_str(duration)
-        },
+        |duration: &str| -> Result<(), Box<EvalAltResult>> { Commands::<E>::sleep_str(duration) },
     );
 
     engine.register_fn(
         "wait_until",
-        |context: NativeCallContext, condition: FnPtr, timeout: i64| -> Result<(), Box<EvalAltResult>> {
+        |context: NativeCallContext,
+         condition: FnPtr,
+         timeout: i64|
+         -> Result<(), Box<EvalAltResult>> {
             Commands::<E>::wait_until(context, condition, timeout)
         },
     );
 
     engine.register_fn(
         "wait_until",
-        |context: NativeCallContext, condition: FnPtr, timeout: &str| -> Result<(), Box<EvalAltResult>> {
+        |context: NativeCallContext,
+         condition: FnPtr,
+         timeout: &str|
+         -> Result<(), Box<EvalAltResult>> {
             let duration = humantime::parse_duration(timeout).map_err(|e| {
                 let msg = format!("Invalid duration: {}", e);
                 Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))

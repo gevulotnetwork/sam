@@ -4,7 +4,6 @@ use tokio::process::Command;
 
 use crate::{config::Config, Error};
 
-
 pub trait Environment {
     async fn start(&mut self) -> Result<(), Error>;
     async fn stop(&mut self) -> Result<(), Error>;
@@ -19,7 +18,10 @@ pub struct ConfigurableEnvironment {
 
 impl ConfigurableEnvironment {
     pub fn new(cfg: &Config) -> Self {
-        Self { cfg: cfg.clone(), is_running: HashSet::new() }
+        Self {
+            cfg: cfg.clone(),
+            is_running: HashSet::new(),
+        }
     }
 
     async fn make_sure_network_exists(&self) -> Result<(), Error> {
@@ -43,7 +45,6 @@ impl ConfigurableEnvironment {
         Ok(())
     }
 
-
     async fn start_component_with_deps(&mut self, component_name: &str) -> Result<(), Error> {
         // Get all dependencies recursively
         let mut deps = std::collections::HashSet::new();
@@ -65,20 +66,23 @@ impl ConfigurableEnvironment {
 
         while !remaining.is_empty() {
             let mut made_progress = false;
-            
+
             remaining.retain(|dep_name| {
-                let component = self.cfg.get_component(dep_name).unwrap_or_else(|| panic!("Component {} not found in config", dep_name));
-                
+                let component = self
+                    .cfg
+                    .get_component(dep_name)
+                    .unwrap_or_else(|| panic!("Component {} not found in config", dep_name));
+
                 // Check if all dependencies are started
-                let deps_satisfied = component.dependencies.iter()
+                let deps_satisfied = component
+                    .dependencies
+                    .iter()
                     .all(|dep| started.contains(dep));
 
                 if deps_satisfied {
                     // Start this component
                     if let Err(e) = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(
-                            self.start_component(dep_name)
-                        )
+                        tokio::runtime::Handle::current().block_on(self.start_component(dep_name))
                     }) {
                         log::error!("Failed to start component {}: {}", dep_name, e);
                         return true; // Keep in remaining list
@@ -122,7 +126,6 @@ impl ConfigurableEnvironment {
 
         match component.component_type.as_str() {
             "container" => {
-
                 // Start container here
                 let mut cmd = Command::new("podman");
                 cmd.arg("run")
@@ -133,7 +136,8 @@ impl ConfigurableEnvironment {
 
                 // Add volumes if specified
                 for volume in &component.volumes {
-                    cmd.arg("-v").arg(format!("{}:{}", volume.host, volume.container));
+                    cmd.arg("-v")
+                        .arg(format!("{}:{}", volume.host, volume.container));
                 }
 
                 // Add environment variables if specified
@@ -148,9 +152,9 @@ impl ConfigurableEnvironment {
 
                 // Add ports if specified
                 for port in &component.ports {
-                    cmd.arg("-p").arg(format!("{}:{}", port.host, port.container));
+                    cmd.arg("-p")
+                        .arg(format!("{}:{}", port.host, port.container));
                 }
-
 
                 // Add entrypoint if specified
                 if let Some(entrypoint) = &component.entrypoint {
@@ -173,12 +177,14 @@ impl ConfigurableEnvironment {
                     .map_err(|e| Error::Podman(e.to_string()))?;
 
                 if !output.status.success() {
-                    return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                    return Err(Error::Podman(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
+                    ));
                 }
             }
             "pod" => {
                 self.make_sure_network_exists().await?;
-                
+
                 let pod_name = &component.name;
 
                 // Create pod
@@ -189,7 +195,10 @@ impl ConfigurableEnvironment {
                     .arg("--name")
                     .arg(pod_name);
 
-                let network_arg = format!("--network={}", &component.network.as_ref().unwrap_or(&"samnet".to_string()));
+                let network_arg = format!(
+                    "--network={}",
+                    &component.network.as_ref().unwrap_or(&"samnet".to_string())
+                );
                 cmd.arg(network_arg);
 
                 // Add port mappings if specified
@@ -203,7 +212,9 @@ impl ConfigurableEnvironment {
                     .map_err(|e| Error::Podman(e.to_string()))?;
 
                 if !output.status.success() {
-                    return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                    return Err(Error::Podman(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
+                    ));
                 }
 
                 // Start all containers in the pod
@@ -218,7 +229,8 @@ impl ConfigurableEnvironment {
 
                     // Add volumes if specified
                     for volume in &container.volumes {
-                        cmd.arg("-v").arg(format!("{}:{}", volume.host, volume.container));
+                        cmd.arg("-v")
+                            .arg(format!("{}:{}", volume.host, volume.container));
                     }
 
                     // Add environment variables if specified
@@ -250,47 +262,51 @@ impl ConfigurableEnvironment {
                         .map_err(|e| Error::Podman(e.to_string()))?;
 
                     if !output.status.success() {
-                        return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                        return Err(Error::Podman(
+                            String::from_utf8_lossy(&output.stderr).to_string(),
+                        ));
                     }
                 }
             }
             "process" => {
                 let command = component.command.as_ref().ok_or_else(|| {
-                    Error::Config(format!("Command not specified for component {:?}", component))
+                    Error::Config(format!(
+                        "Command not specified for component {:?}",
+                        component
+                    ))
                 })?;
                 if command.is_empty() {
-                    return Err(Error::Config(format!("Command is empty for component {:?}", component)));
+                    return Err(Error::Config(format!(
+                        "Command is empty for component {:?}",
+                        component
+                    )));
                 }
 
                 let mut cmd = Command::new(&command[0]);
-                
-                if command.len() > 1 {  
+
+                if command.len() > 1 {
                     // Add arguments
                     cmd.args(&command[1..]);
                 }
 
-                cmd
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped());
+                cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-                let child = cmd
-                    .spawn()
-                    .map_err(|e| Error::Process(e.to_string()))?;
+                let child = cmd.spawn().map_err(|e| Error::Process(e.to_string()))?;
 
                 // Write PID to file
                 if let Some(pid) = child.id() {
-                    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-                        .unwrap_or_else(|_| "/tmp".to_string());
-                    let pid_file_path = std::path::Path::new(&runtime_dir)
-                        .join(format!("{}.pid", component_name));
+                    let runtime_dir =
+                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
+                    let pid_file_path =
+                        std::path::Path::new(&runtime_dir).join(format!("{}.pid", component_name));
                     std::fs::write(&pid_file_path, pid.to_string())
                         .map_err(|e| Error::Process(e.to_string()))?;
                 }
 
                 // Handle stdout
                 if let Some(mut stdout) = child.stdout {
-                    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-                        .unwrap_or_else(|_| "/tmp".to_string());
+                    let runtime_dir =
+                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
                     let stdout_file = std::path::Path::new(&runtime_dir)
                         .join(format!("{}.stdout", component_name));
                     tokio::spawn(async move {
@@ -301,8 +317,8 @@ impl ConfigurableEnvironment {
 
                 // Handle stderr
                 if let Some(mut stderr) = child.stderr {
-                    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-                        .unwrap_or_else(|_| "/tmp".to_string());
+                    let runtime_dir =
+                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
                     let stderr_file = std::path::Path::new(&runtime_dir)
                         .join(format!("{}.stderr", component_name));
                     tokio::spawn(async move {
@@ -351,7 +367,9 @@ impl ConfigurableEnvironment {
                     .map_err(|e| Error::Podman(e.to_string()))?;
 
                 if !output.status.success() {
-                    return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                    return Err(Error::Podman(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
+                    ));
                 }
             }
             "container" => {
@@ -367,15 +385,17 @@ impl ConfigurableEnvironment {
                     .map_err(|e| Error::Podman(e.to_string()))?;
 
                 if !output.status.success() {
-                    return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                    return Err(Error::Podman(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
+                    ));
                 }
             }
             "process" => {
                 // Read PID from file
-                let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-                    .unwrap_or_else(|_| "/tmp".to_string());
-                let pid_file_path = std::path::Path::new(&runtime_dir)
-                    .join(format!("{}.pid", component_name));
+                let runtime_dir =
+                    std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
+                let pid_file_path =
+                    std::path::Path::new(&runtime_dir).join(format!("{}.pid", component_name));
                 let pid = std::fs::read_to_string(&pid_file_path)
                     .map_err(|e| Error::Process(e.to_string()))?;
 
@@ -383,7 +403,8 @@ impl ConfigurableEnvironment {
                 if let Err(e) = std::process::Command::new("kill")
                     .arg("-9")
                     .arg(&pid)
-                    .output() {
+                    .output()
+                {
                     log::error!("Failed to kill process {}: {}", pid, e);
                     return Err(Error::Process(e.to_string()));
                 }
@@ -410,27 +431,31 @@ impl Environment for ConfigurableEnvironment {
         // Start all components in dependency order
         let mut started = std::collections::HashSet::new();
 
-        let mut remaining: Vec<_> = self.cfg.components.iter()
+        let mut remaining: Vec<_> = self
+            .cfg
+            .components
+            .iter()
             .filter(|c| c.start_by_default)
             .map(|c| c.name.clone())
             .collect();
 
         while !remaining.is_empty() {
             let mut made_progress = false;
-            
+
             remaining.retain(|component_name| {
                 let component = self.cfg.get_component(component_name).unwrap();
-                
+
                 // Check if all dependencies are started
-                let deps_satisfied = component.dependencies.iter()
+                let deps_satisfied = component
+                    .dependencies
+                    .iter()
                     .all(|dep| started.contains(dep));
 
                 if deps_satisfied {
                     // Start this component
                     if let Err(e) = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(
-                            self.start_component(component_name)
-                        )
+                        tokio::runtime::Handle::current()
+                            .block_on(self.start_component(component_name))
                     }) {
                         log::error!("Failed to start component {}: {}", component_name, e);
                         return true; // Keep in remaining list
@@ -455,7 +480,10 @@ impl Environment for ConfigurableEnvironment {
         }
 
         let duration = start_time.elapsed(); // Calculate elapsed time
-        log::info!("Environment started successfully in {}", humantime::format_duration(duration));
+        log::info!(
+            "Environment started successfully in {}",
+            humantime::format_duration(duration)
+        );
         Ok(())
     }
 
@@ -465,7 +493,10 @@ impl Environment for ConfigurableEnvironment {
         let stop_time = std::time::Instant::now(); // Start timing
 
         // Stop all components in reverse dependency order
-        let mut stopped: std::collections::HashSet<String> = self.cfg.components.iter()
+        let mut stopped: std::collections::HashSet<String> = self
+            .cfg
+            .components
+            .iter()
             .map(|c| c.name.clone())
             .filter(|name| !self.is_running.contains(name))
             .collect();
@@ -473,19 +504,21 @@ impl Environment for ConfigurableEnvironment {
 
         while !remaining.is_empty() {
             let mut made_progress = false;
-            
+
             remaining.retain(|component_name| {
                 // Check if all dependents are stopped
-                let can_stop = self.cfg.components.iter()
+                let can_stop = self
+                    .cfg
+                    .components
+                    .iter()
                     .filter(|c| c.dependencies.contains(component_name))
                     .all(|c| stopped.contains(&c.name));
 
                 if can_stop {
                     // Stop this component
                     if let Err(e) = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(
-                            self.stop_component(component_name)
-                        )
+                        tokio::runtime::Handle::current()
+                            .block_on(self.stop_component(component_name))
                     }) {
                         log::error!("Failed to stop component {}: {}", component_name, e);
                         return true; // Keep in remaining list
@@ -496,7 +529,10 @@ impl Environment for ConfigurableEnvironment {
                     made_progress = true;
                     false // Remove from remaining list
                 } else {
-                    log::debug!("Component {} waiting for dependents to stop", component_name);
+                    log::debug!(
+                        "Component {} waiting for dependents to stop",
+                        component_name
+                    );
                     true // Keep in remaining list
                 }
             });
@@ -511,7 +547,12 @@ impl Environment for ConfigurableEnvironment {
 
         // Remove all pods
         log::debug!("Removing pods");
-        for pod in self.cfg.components.iter().filter(|c| c.component_type == "pod") {
+        for pod in self
+            .cfg
+            .components
+            .iter()
+            .filter(|c| c.component_type == "pod")
+        {
             log::debug!("Removing pod {}", pod.name);
             let output = Command::new("podman")
                 .arg("pod")
@@ -524,13 +565,18 @@ impl Environment for ConfigurableEnvironment {
                 .map_err(|e| Error::Podman(e.to_string()))?;
 
             if !output.status.success() {
-                return Err(Error::Podman(String::from_utf8_lossy(&output.stderr).to_string()));
+                return Err(Error::Podman(
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                ));
             }
             log::debug!("Removed pod {}", pod.name);
         }
 
         let duration = stop_time.elapsed(); // Calculate elapsed time
-        log::info!("Environment stopped successfully in {}", humantime::format_duration(duration));
+        log::info!(
+            "Environment stopped successfully in {}",
+            humantime::format_duration(duration)
+        );
         Ok(())
     }
 
@@ -545,9 +591,7 @@ impl Environment for ConfigurableEnvironment {
 
 impl Drop for ConfigurableEnvironment {
     fn drop(&mut self) {
-        let _ = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(self.stop())
-        });
+        let _ =
+            tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(self.stop()));
     }
 }
-

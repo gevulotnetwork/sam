@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-
-use crate::environment::{Environment};
+use crate::environment::Environment;
 
 pub struct Assertion {
     pub name: String,

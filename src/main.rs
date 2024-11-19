@@ -34,73 +34,68 @@ impl std::fmt::Display for Error {
 
 fn setup_command_line_args() -> Command {
     clap::command!()
-        .subcommand_required(true)
-        .subcommand(
-            Command::new("run")
-                .about("Run the e2e test environment")
-                .arg(
-                    clap::Arg::new("script")
-                        .short('s')
-                        .long("script")
-                        .action(clap::ArgAction::Append)
-                        .help("Test script or directory"),
-                )
-                .arg(
-                    clap::Arg::new("keep-running")
-                        .short('k')
-                        .long("keep-running")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Keep the environment running after the script has finished"),
-                )
-                .arg(
-                    clap::Arg::new("config")
-                        .short('c')
-                        .long("config")
-                        .default_value("config.yaml")
-                        .help("Use a custom config file"),
-                )
-                .arg(
-                    clap::Arg::new("delay")
-                        .short('d')
-                        .long("delay")
-                        .help("Delay the start of the tests"),
-                )
-                .arg(
-                    clap::Arg::new("repeat")
-                        .short('r')
-                        .long("repeat")
-                        .value_parser(clap::value_parser!(u64))
-                        .help("Repeat the script"),
-                )
-                .arg(
-                    clap::Arg::new("filter")
-                        .short('f')
-                        .long("filter")
-                        .help("Filter the tests"),
-                )
-                .arg(
-                    clap::Arg::new("skip")
-                        .short('x')
-                        .long("skip")
-                        .help("Skip the tests"),
-                )
-                .arg(
-                    clap::Arg::new("reset-once")
-                        .long("reset-once")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Reset the environment once before starting up"),
-                )
-                .arg(
-                    clap::Arg::new("force")
-                        .long("force")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Force reset the environment"),
-                )
-                .arg(
-                    clap::Arg::new("module-dir")
-                        .long("module-dir")
-                        .help("The directory containing the Rhai modules"),
-                ),
+        .arg(
+            clap::Arg::new("script")
+                .short('s')
+                .long("script")
+                .action(clap::ArgAction::Append)
+                .help("Test script or directory"),
+        )
+        .arg(
+            clap::Arg::new("keep-running")
+                .short('k')
+                .long("keep-running")
+                .action(clap::ArgAction::SetTrue)
+                .help("Keep the environment running after the script has finished"),
+        )
+        .arg(
+            clap::Arg::new("config")
+                .short('c')
+                .long("config")
+                .default_value("config.yaml")
+                .help("Use a custom config file"),
+        )
+        .arg(
+            clap::Arg::new("delay")
+                .short('d')
+                .long("delay")
+                .help("Delay the start of the tests"),
+        )
+        .arg(
+            clap::Arg::new("repeat")
+                .short('r')
+                .long("repeat")
+                .value_parser(clap::value_parser!(u64))
+                .help("Repeat the script"),
+        )
+        .arg(
+            clap::Arg::new("filter")
+                .short('f')
+                .long("filter")
+                .help("Filter the tests"),
+        )
+        .arg(
+            clap::Arg::new("skip")
+                .short('x')
+                .long("skip")
+                .help("Skip the tests"),
+        )
+        .arg(
+            clap::Arg::new("reset-once")
+                .long("reset-once")
+                .action(clap::ArgAction::SetTrue)
+                .help("Reset the environment once before starting up"),
+        )
+        .arg(
+            clap::Arg::new("force")
+                .long("force")
+                .action(clap::ArgAction::SetTrue)
+                .help("Force reset the environment"),
+        )
+        .arg(
+            clap::Arg::new("module-dir")
+                .long("module-dir")
+                .help("The directory containing the Rhai modules"),
         )
         .subcommand(
             Command::new("reset")
@@ -124,11 +119,11 @@ fn setup_command_line_args() -> Command {
 
 async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
     log::debug!("Starting run_environment");
-    
+
     log::debug!("Loading config file");
     let mut cfg = Config::load(sub_matches.get_one::<String>("config").unwrap())?;
     cfg.read_flags(sub_matches)?;
-    
+
     if cfg.global.reset_once {
         log::debug!("Reset-once flag detected, resetting environment");
         reset_environment(sub_matches).await?;
@@ -137,7 +132,6 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
     let global_cfg = cfg.global.clone();
     log::debug!("Creating configurable environment");
     let mut env = ConfigurableEnvironment::new(&cfg);
-
 
     log::debug!("Starting environment");
     env.start().await?;
@@ -186,7 +180,10 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
         }
     }
 
-    log::debug!("Creating Rhai engine with module directories: {:?}", module_dirs);
+    log::debug!(
+        "Creating Rhai engine with module directories: {:?}",
+        module_dirs
+    );
     let mut engine = Engine::new(env, &module_dirs);
 
     if let Some(filter) = &global_cfg.filter {
@@ -279,11 +276,12 @@ async fn main() -> Result<(), Error> {
     welcome();
 
     let cmd = setup_command_line_args();
+    let matches = cmd.get_matches();
 
-    match cmd.get_matches().subcommand() {
-        Some(("run", sub_matches)) => run_environment(sub_matches).await?,
+    match matches.subcommand() {
         Some(("reset", sub_matches)) => reset_environment(sub_matches).await?,
-        _ => unreachable!("Subcommand required"),
+        None => run_environment(&matches).await?,
+        _ => unreachable!("Invalid subcommand"),
     }
 
     Ok(())

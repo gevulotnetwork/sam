@@ -61,7 +61,7 @@ describe("Example Webserver", || {
 
 3. Run the tests:
 ```sh
-sam run
+sam
 ```
 
 

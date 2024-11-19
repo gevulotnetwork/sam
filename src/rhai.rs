@@ -1,12 +1,10 @@
 use parking_lot::Mutex;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{
-    Engine as RhaiEngine, EvalAltResult, Position, Scope
-};
+use rhai::{Engine as RhaiEngine, EvalAltResult, Position, Scope};
 use std::{path::PathBuf, sync::Arc};
 
-use crate::environment::Environment;
 use crate::commands::register_commands;
+use crate::environment::Environment;
 use crate::state::SharedState;
 
 pub struct Engine<E: Environment> {
@@ -35,7 +33,7 @@ impl<E: Environment + 'static> Engine<E> {
         engine.engine.set_module_resolver(resolvers);
 
         register_commands(&mut engine.engine, engine.shared_state.clone());
-        
+
         engine
     }
 
@@ -59,7 +57,7 @@ impl<E: Environment + 'static> Engine<E> {
             Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
         })? {
             if let Ok(entry) = entry {
-            let path = entry.path();
+                let path = entry.path();
                 if path.is_file() && path.extension().unwrap_or_default() == "rhai" {
                     self.run_file(path)?;
                 }

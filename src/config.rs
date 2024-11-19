@@ -15,8 +15,7 @@ pub struct Config {
     pub global: Global,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[derive(Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Global {
     #[serde(default)]
     pub scripts: Vec<String>,
@@ -31,9 +30,8 @@ pub struct Global {
     #[serde(default)]
     pub force: bool,
     #[serde(default)]
-    pub module_dirs: Vec<String>
+    pub module_dirs: Vec<String>,
 }
-
 
 impl Config {
     pub fn load(path: &str) -> Result<Self, Error> {
@@ -49,7 +47,11 @@ impl Config {
     pub fn merge(&self, other: &Self) -> Result<Self, Error> {
         let mut result = self.clone();
         for component in &other.components {
-            if let Some(pos) = result.components.iter().position(|c| c.name == component.name) {
+            if let Some(pos) = result
+                .components
+                .iter()
+                .position(|c| c.name == component.name)
+            {
                 result.components[pos] = component.clone();
             } else {
                 result.components.push(component.clone());
