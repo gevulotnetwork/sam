@@ -41,7 +41,7 @@ describe("stdlib", || {
 
     describe("assert_eq", || {
         it("should be able to assert_eq", || {
-            assert::eq(#{"a": 1, "b": 2}, #{"a": 2, "b": 2});
+            assert::eq(#{"a": 1, "b": 2}, #{"a": 1, "b": 2});
         });
     });
 

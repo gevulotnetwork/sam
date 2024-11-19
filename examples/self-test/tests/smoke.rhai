@@ -25,7 +25,7 @@ EOF`);
 ${EXAMPLE_TEST}
 EOF`);
 
-        let output = exec(`./target/release/sam run -c ${CONFIG_FILE}`);
+        let output = exec(`./target/release/sam -c ${CONFIG_FILE}`);
         require(output.contains("succeeded"), "Expected output to contain 'succeeded'");
     });
 });

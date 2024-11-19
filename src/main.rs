@@ -17,6 +17,7 @@ enum Error {
     Other(String),
     Config(String),
     Process(String),
+    Test(String),
 }
 
 impl std::error::Error for Error {}
@@ -28,6 +29,7 @@ impl std::fmt::Display for Error {
             Self::Other(e) => write!(f, "Other error: {}", e),
             Self::Config(e) => write!(f, "Config error: {}", e),
             Self::Process(e) => write!(f, "Process error: {}", e),
+            Self::Test(e) => write!(f, "Test error: {}", e),
         }
     }
 }
@@ -218,6 +220,13 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
         tokio::signal::ctrl_c()
             .await
             .map_err(|e| Error::Other(e.to_string()))?;
+    }
+
+    if engine.get_error_count() > 0 {
+        return Err(Error::Test(format!(
+            "Test run failed with {} failed assertions",
+            engine.get_error_count()
+        )));
     }
 
     log::debug!("run_environment completed successfully");

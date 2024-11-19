@@ -83,4 +83,14 @@ impl<E: Environment + 'static> Engine<E> {
         let mut state = self.shared_state.lock();
         state.skip_expression = Some(skip);
     }
+
+    pub fn get_error_count(&self) -> usize {
+        let state = self.shared_state.lock();
+        let error_count = state
+            .assertions
+            .iter()
+            .flat_map(|(_, assertions)| assertions.iter().filter(|a| !a.success))
+            .count();
+        error_count
+    }
 }
