@@ -11,6 +11,14 @@ pub trait Environment {
     async fn stop_component(&mut self, component_name: &str) -> Result<(), Error>;
 }
 
+pub struct MockEnvironment {}
+impl Environment for MockEnvironment {
+    async fn start(&mut self) -> Result<(), Error> { Ok(()) }
+    async fn stop(&mut self) -> Result<(), Error> { Ok(()) }
+    async fn start_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
+    async fn stop_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
+}
+
 pub struct ConfigurableEnvironment {
     cfg: Config,
     is_running: HashSet<String>,

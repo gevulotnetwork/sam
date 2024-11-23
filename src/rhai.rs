@@ -5,7 +5,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::commands::register_commands;
 use crate::environment::Environment;
-use crate::state::SharedState;
+use crate::state::{SharedState, TestReport};
 
 pub struct Engine<E: Environment> {
     engine: RhaiEngine,
@@ -92,5 +92,10 @@ impl<E: Environment + 'static> Engine<E> {
             .flat_map(|(_, assertions)| assertions.iter().filter(|a| !a.success))
             .count();
         error_count
+    }
+
+    pub fn get_report(&self) -> TestReport {
+        let state = self.shared_state.lock();
+        TestReport::from(&*state)
     }
 }

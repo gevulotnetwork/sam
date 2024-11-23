@@ -99,6 +99,11 @@ fn setup_command_line_args() -> Command {
                 .long("module-dir")
                 .help("The directory containing the Rhai modules"),
         )
+        .arg(
+            clap::Arg::new("output")
+                .long("output")
+                .help("The file to output the test report to"),
+        )
         .subcommand(
             Command::new("reset")
                 .about("Reset the e2e test environment")
@@ -222,6 +227,19 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
             .map_err(|e| Error::Other(e.to_string()))?;
     }
 
+
+    if let Some(output) = sub_matches.get_one::<String>("output") {
+        log::debug!("Writing test report to {}", output);
+        let report = engine.get_report();
+        let is_yaml = output.ends_with(".yaml") || output.ends_with(".yml");
+        if is_yaml {
+            std::fs::write(output, serde_yaml::to_string(&report).unwrap())
+                .map_err(|e| Error::Other(e.to_string()))?;
+        } else {
+            std::fs::write(output, serde_json::to_string_pretty(&report).unwrap())
+                .map_err(|e| Error::Other(e.to_string()))?;
+        }
+    }
     if engine.get_error_count() > 0 {
         return Err(Error::Test(format!(
             "Test run failed with {} failed assertions",

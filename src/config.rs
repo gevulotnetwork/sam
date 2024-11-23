@@ -33,6 +33,18 @@ pub struct Global {
     pub module_dirs: Vec<String>,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            name: "test".to_string(),
+            base: None,
+            components: vec![],
+            reset: vec![],
+            global: Global::default(),
+        }
+    }
+}
+
 impl Config {
     pub fn load(path: &str) -> Result<Self, Error> {
         let cfg = std::fs::read_to_string(path).map_err(|e| Error::Config(e.to_string()))?;
