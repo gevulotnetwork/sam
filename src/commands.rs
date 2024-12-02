@@ -12,7 +12,10 @@ pub struct Commands<E: Environment> {
 }
 
 impl<E: Environment> Commands<E> {
-    fn print_indented(msg: &str, indention_level: usize) {
+    fn print_indented(msg: &str, indention_level: usize, silent: bool) {
+        if silent {
+            return;
+        }
         let prefix = format!(" \x1b[32mTEST\x1b[0m{}", "  ".repeat(indention_level));
         if msg.contains('\n') {
             for line in msg.lines() {
@@ -43,6 +46,7 @@ impl<E: Environment> Commands<E> {
         Self::print_indented(
             &format!("Testing \x1b[3m{}\x1b[0m ...\n", msg),
             indention_level - 1,
+            state.lock().silent,
         );
 
         let start = std::time::Instant::now();
@@ -53,7 +57,8 @@ impl<E: Environment> Commands<E> {
                 if state.error_count == 0 && state.test_count > 0 {
                     Self::print_indented(
                         &format!("Testing \x1b[3m{}\x1b[0m \x1b[32msucceeded\x1b[0m! ✅ ({} tests passed) ({})\n", msg, state.test_count, humantime::format_duration(duration)),
-                        indention_level - 1
+                        indention_level - 1,
+                        state.silent,
                     );
                 } else if state.test_count == 0 {
                     Self::print_indented(
@@ -63,11 +68,19 @@ impl<E: Environment> Commands<E> {
                             humantime::format_duration(duration)
                         ),
                         indention_level - 1,
+                        state.silent,
                     );
                 } else {
                     Self::print_indented(
-                        &format!("Testing \x1b[3m{}\x1b[0m \x1b[31mfailed\x1b[0m! 😭 ({} tests failed out of {}) ({})\n", msg, state.error_count, state.test_count, humantime::format_duration(duration)),
-                        indention_level - 1
+                        &format!(
+                            "Testing \x1b[3m{}\x1b[0m \x1b[31mfailed\x1b[0m! 😭 ({} tests failed out of {}) ({})\n",
+                            msg,
+                            state.error_count,
+                            state.test_count,
+                            humantime::format_duration(duration)
+                        ),
+                        indention_level - 1,
+                        state.silent,
                     );
                 }
                 if let Some((parent_tests, parent_errors)) = state.nested_test_counts.pop() {
@@ -85,6 +98,7 @@ impl<E: Environment> Commands<E> {
                         humantime::format_duration(duration)
                     ),
                     indention_level - 1,
+                    state.lock().silent,
                 );
                 let mut state = state.lock();
                 state.nested_test_counts.pop(); // Clean up the stack on error
@@ -111,6 +125,7 @@ impl<E: Environment> Commands<E> {
                 Self::print_indented(
                     &format!("Skipping \x1b[3m{}\x1b[0m ⏭️\n", msg),
                     state.indention_level,
+                    state.silent,
                 );
                 state.current_test_stack.pop();
                 return Ok(());
@@ -118,7 +133,11 @@ impl<E: Environment> Commands<E> {
             state.test_count += 1;
             state.indention_level
         };
-        Self::print_indented(&format!("It \x1b[3m{}\x1b[0m...", msg), indention_level);
+        Self::print_indented(
+            &format!("It \x1b[3m{}\x1b[0m...", msg),
+            indention_level,
+            state.lock().silent,
+        );
         std::io::stdout().flush().unwrap();
 
         let start = std::time::Instant::now();
@@ -128,9 +147,9 @@ impl<E: Environment> Commands<E> {
 
         match result {
             Ok(_) => {
-                if !state.current_test_failed {
+                if !state.current_test_failed && !state.silent {
                     println!("✅ ({})", humantime::format_duration(duration));
-                } else {
+                } else if !state.silent {
                     println!("😭 ({})", humantime::format_duration(duration));
                     state.error_count += 1;
                     for assertion in state
@@ -146,13 +165,16 @@ impl<E: Environment> Commands<E> {
                                 assertion.message
                             ),
                             state.indention_level + 1,
+                            state.silent,
                         );
                     }
                 }
             }
             Err(e) => {
                 let error = e.to_string().replace("\n", " ").replace("  ", " ");
-                println!("😭: {} ({})", error, humantime::format_duration(duration));
+                if !state.silent {
+                    println!("😭: {} ({})", error, humantime::format_duration(duration));
+                }
                 for assertion in state
                     .assertions
                     .get(&state.get_current_test_id())
@@ -166,6 +188,7 @@ impl<E: Environment> Commands<E> {
                             assertion.message
                         ),
                         state.indention_level,
+                        state.silent,
                     );
                 }
                 state.error_count += 1;
@@ -202,37 +225,6 @@ impl<E: Environment> Commands<E> {
             name: assertion_name,
             success,
             message: msg.to_string(),
-            file: state.current_file.clone().unwrap_or("unknown".to_string()),
-            line: context.position().line().unwrap_or(0),
-        };
-        state.push_assertion(assertion);
-        if !success {
-            state.current_test_failed = true;
-        }
-        Ok(())
-    }
-
-    pub fn assert_eq(
-        state: Arc<Mutex<SharedState<E>>>,
-        context: NativeCallContext,
-        expected: Dynamic,
-        actual: Dynamic,
-        msg: &str,
-    ) -> Result<(), Box<EvalAltResult>> {
-        let success = expected.to_string() == actual.to_string();
-        let mut state = state.lock();
-        let assertion_name = state.current_test_stack.join(".") + "/" + msg;
-        let mut message = msg.to_string();
-        if !success {
-            let expected_str = expected.to_string();
-            let actual_str = actual.to_string();
-            let diff = SimpleDiff::from_str(&expected_str, &actual_str, "EXPECTED", "ACTUAL");
-            message = format!("{}:\n{}", msg, diff);
-        }
-        let assertion = Assertion {
-            name: assertion_name,
-            success,
-            message,
             file: state.current_file.clone().unwrap_or("unknown".to_string()),
             line: context.position().line().unwrap_or(0),
         };
@@ -415,6 +407,73 @@ impl<E: Environment> Commands<E> {
             false
         }
     }
+
+    pub fn set(
+        state: Arc<Mutex<SharedState<E>>>,
+        key: &str,
+        value: Dynamic,
+    ) -> Result<(), Box<EvalAltResult>> {
+        let mut state = state.lock();
+        state.kv_store.insert(key.to_string(), value);
+        Ok(())
+    }
+
+    pub fn get(
+        state: Arc<Mutex<SharedState<E>>>,
+        key: &str,
+    ) -> Result<Dynamic, Box<EvalAltResult>> {
+        state
+            .lock()
+            .kv_store
+            .get(key)
+            .cloned()
+            .ok_or(Box::new(EvalAltResult::ErrorRuntime(
+                format!("Key not found: {}", key).into(),
+                Position::NONE,
+            )))
+    }
+
+    pub fn parse_json(json: &str) -> Result<Dynamic, Box<EvalAltResult>> {
+        serde_json::from_str(json).map_err(|e| {
+            let msg = format!("Failed to parse JSON: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
+
+    pub fn parse_yaml(yaml: &str) -> Result<Dynamic, Box<EvalAltResult>> {
+        serde_yaml::from_str(yaml).map_err(|e| {
+            let msg = format!("Failed to parse YAML: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
+
+    pub fn parse_toml(toml: &str) -> Result<Dynamic, Box<EvalAltResult>> {
+        toml::from_str(toml).map_err(|e| {
+            let msg = format!("Failed to parse TOML: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
+
+    pub fn to_json(value: &Dynamic) -> Result<String, Box<EvalAltResult>> {
+        serde_json::to_string(value).map_err(|e| {
+            let msg = format!("Failed to convert to JSON: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
+
+    pub fn to_yaml(value: &Dynamic) -> Result<String, Box<EvalAltResult>> {
+        serde_yaml::to_string(value).map_err(|e| {
+            let msg = format!("Failed to convert to YAML: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
+
+    pub fn to_toml(value: &Dynamic) -> Result<String, Box<EvalAltResult>> {
+        toml::to_string(value).map_err(|e| {
+            let msg = format!("Failed to convert to TOML: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
+    }
 }
 
 pub fn register_commands<E: Environment + 'static>(
@@ -429,9 +488,26 @@ pub fn register_commands<E: Environment + 'static>(
         },
     );
 
+    // alias describe as task
+    let state_clone = state.clone();
+    engine.register_fn(
+        "task",
+        move |context: NativeCallContext, msg: &str, cb: FnPtr| -> Result<(), Box<EvalAltResult>> {
+            Commands::<E>::describe(state_clone.clone(), context, msg, cb)
+    });
+
     let state_clone = state.clone();
     engine.register_fn(
         "it",
+        move |context: NativeCallContext, msg: &str, cb: FnPtr| -> Result<(), Box<EvalAltResult>> {
+            Commands::<E>::it(state_clone.clone(), context, msg, cb)
+        },
+    );
+
+    // alias it as step
+    let state_clone = state.clone();
+    engine.register_fn(
+        "step",
         move |context: NativeCallContext, msg: &str, cb: FnPtr| -> Result<(), Box<EvalAltResult>> {
             Commands::<E>::it(state_clone.clone(), context, msg, cb)
         },
@@ -537,4 +613,44 @@ pub fn register_commands<E: Environment + 'static>(
             Commands::<E>::wait_until(context, condition, duration.as_millis() as i64)
         },
     );
+
+    let state_clone = state.clone();
+    engine.register_fn(
+        "get",
+        move |key: &str| -> Result<Dynamic, Box<EvalAltResult>> {
+            Commands::<E>::get(state_clone.clone(), key)
+        },
+    );
+
+    let state_clone = state.clone();
+    engine.register_fn(
+        "set",
+        move |key: &str, value: Dynamic| -> Result<(), Box<EvalAltResult>> {
+            Commands::<E>::set(state_clone.clone(), key, value)
+        },
+    );
+
+    engine.register_fn("parse_json", |json: &str| -> Result<Dynamic, Box<EvalAltResult>> {
+        Commands::<E>::parse_json(json)
+    });
+
+    engine.register_fn("parse_yaml", |yaml: &str| -> Result<Dynamic, Box<EvalAltResult>> {
+        Commands::<E>::parse_yaml(yaml)
+    });
+
+    engine.register_fn("parse_toml", |toml: &str| -> Result<Dynamic, Box<EvalAltResult>> {
+        Commands::<E>::parse_toml(toml)
+    });
+
+    engine.register_fn("to_json", |value: Dynamic| -> Result<String, Box<EvalAltResult>> {
+        Commands::<E>::to_json(&value)
+    });
+
+    engine.register_fn("to_yaml", |value: Dynamic| -> Result<String, Box<EvalAltResult>> {
+        Commands::<E>::to_yaml(&value)
+    });
+
+    engine.register_fn("to_toml", |value: Dynamic| -> Result<String, Box<EvalAltResult>> {
+        Commands::<E>::to_toml(&value)
+    });
 }

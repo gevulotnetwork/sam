@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 
 use crate::environment::Environment;
@@ -38,6 +39,8 @@ pub struct SharedState<E: Environment> {
     pub current_file: Option<String>,
     pub assertions: HashMap<TestId, Vec<Assertion>>,
     pub current_test_failed: bool,
+    pub silent: bool,
+    pub kv_store: HashMap<String, Dynamic>,
     pub env: E,
 }
 
@@ -54,6 +57,8 @@ impl<E: Environment> SharedState<E> {
             current_file: None,
             assertions: HashMap::new(),
             current_test_failed: false,
+            silent: false,
+            kv_store: HashMap::new(),
             env,
         }
     }

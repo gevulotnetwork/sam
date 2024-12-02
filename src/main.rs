@@ -102,6 +102,7 @@ fn setup_command_line_args() -> Command {
         .arg(
             clap::Arg::new("output")
                 .long("output")
+                .short('o')
                 .help("The file to output the test report to"),
         )
         .subcommand(
