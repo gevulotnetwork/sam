@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fmt::Display};
 
-use rhai::Dynamic;
+use rhai::{Dynamic, EvalAltResult};
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
 
 use crate::environment::Environment;
 
@@ -15,12 +16,6 @@ pub struct Assertion {
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct TestId(Vec<String>);
-
-impl TestId {
-    pub fn new(test_stack: Vec<String>) -> Self {
-        Self(test_stack)
-    }
-}
 
 impl Display for TestId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,7 +36,10 @@ pub struct SharedState<E: Environment> {
     pub current_test_failed: bool,
     pub silent: bool,
     pub kv_store: HashMap<String, Dynamic>,
+    pub temp_dirs: Vec<tempdir::TempDir>,
     pub env: E,
+    pub module_dirs: Vec<String>,
+    pub spawn_handles: HashMap<i64,JoinHandle<Result<(), Box<EvalAltResult>>>>,
 }
 
 impl<E: Environment> SharedState<E> {
@@ -59,6 +57,9 @@ impl<E: Environment> SharedState<E> {
             current_test_failed: false,
             silent: false,
             kv_store: HashMap::new(),
+            temp_dirs: vec![],
+            module_dirs: vec![],
+            spawn_handles: HashMap::new(),
             env,
         }
     }
@@ -134,12 +135,11 @@ impl<E: Environment> From<&SharedState<E>> for TestReport {
 }
 
 mod tests {
-    use crate::{config::Config, MockEnvironment};
-
-    use super::*;
 
     #[tokio::test]
     async fn test_report_from_state_complex() {
+        use crate::{state::{Assertion, SharedState, TestReport}, MockEnvironment};
+
         let mut state = SharedState::new(MockEnvironment {});
         state.current_test_stack.push("test".to_string());
         state.current_test_stack.push("nested".to_string());

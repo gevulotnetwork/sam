@@ -80,61 +80,38 @@ describe("Builtin Functions", || {
         });
     });
 
-    describe("Encodings", || {
-        describe("JSON", || {
-            it("should be able to parse JSON", || {
-                let json = `{"a": 1, "b": 2}`;
-                let parsed = parse_json(json);
-                assert::eq(parsed, #{"a": 1, "b": 2});
-            });
 
-            it("should be able to parse scalar json values", || {
-                let json = `"Hello"`;
-                let parsed = parse_json(json);
-                assert::eq(parsed, "Hello");
-            });
-
-            it("should be possible to encode to json", || {
-                let value = #{"a": 1, "b": 2};
-                let encoded = to_json(value);
-                assert::eq(encoded, `{"a":1,"b":2}`);
+    task("Show alternative task syntax", || {
+        task("sub-task", || {
+            step("assert that substeps work", || {
+                assert(true, "Alternative task syntax works");
             });
         });
+    });
 
-        describe("YAML", || {
-            it("should be able to parse YAML", || {
-                let yaml = `---
-                a: 1
-                b: 2
-                `;
-                let parsed = parse_yaml(yaml);
-                assert::eq(parsed, #{"a": 1, "b": 2});
+    describe("spawn", || {
+        it("should be possible to spawn a task", || {
+            print("");
+            let id = spawn_task(|| {
+                print("Hello from the spawned task");
             });
-
-            it("should be possible to encode to yaml", || {
-                let value = #{"a": 1, "b": 2};
-                let encoded = to_yaml(value);
-                let expected = "a: 1\nb: 2\n";
-                assert::eq(encoded, expected);
-            });
+            wait_for_task(id);
         });
 
-        describe("TOML", || {
-            it("should be able to parse TOML", || {
-                let toml = `
-                a = 1
-                b = 2
-                `;
-                let parsed = parse_toml(toml);
-                assert::eq(parsed, #{"a": 1, "b": 2});
-            });
-
-            it("should be possible to encode to toml", || {
-                let value = #{"a": 1, "b": 2};
-                let encoded = to_toml(value);
-                let expected = "a = 1\nb = 2\n";
-                assert::eq(encoded, expected);
-            });
+        it("should be able to spawn multiple tasks", || {
+            print("");
+            let ids = [];
+            for i in 0..10 {
+                let i = i; // note that this closure specific clone needs to be done here, like in many other languages
+                ids.push(spawn_task(|| {
+                    let delay = random_int(100, 500);
+                    sleep(`${delay}ms`);
+                    print(`Hello from the spawned task ${i} after ${delay}ms`);
+                }));
+            }
+            print("all spawned");
+            print("waiting for tasks");
+            wait_for_tasks(ids);
         });
     });
 

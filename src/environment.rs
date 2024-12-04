@@ -4,11 +4,12 @@ use tokio::process::Command;
 
 use crate::{config::Config, Error};
 
-pub trait Environment {
+pub trait Environment: Send + Sync {
     async fn start(&mut self) -> Result<(), Error>;
     async fn stop(&mut self) -> Result<(), Error>;
     async fn start_component(&mut self, component_name: &str) -> Result<(), Error>;
     async fn stop_component(&mut self, component_name: &str) -> Result<(), Error>;
+    fn stop_on_drop(&mut self, stop_on_drop: bool);
 }
 
 pub struct MockEnvironment {}
@@ -17,11 +18,14 @@ impl Environment for MockEnvironment {
     async fn stop(&mut self) -> Result<(), Error> { Ok(()) }
     async fn start_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
     async fn stop_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
+    fn stop_on_drop(&mut self, _stop_on_drop: bool) {}
 }
 
+#[derive(Clone)]
 pub struct ConfigurableEnvironment {
     cfg: Config,
     is_running: HashSet<String>,
+    stop_on_drop: bool,
 }
 
 impl ConfigurableEnvironment {
@@ -29,6 +33,7 @@ impl ConfigurableEnvironment {
         Self {
             cfg: cfg.clone(),
             is_running: HashSet::new(),
+            stop_on_drop: true,
         }
     }
 
@@ -595,11 +600,18 @@ impl Environment for ConfigurableEnvironment {
     async fn stop_component(&mut self, component_name: &str) -> Result<(), Error> {
         ConfigurableEnvironment::stop_component(self, component_name).await
     }
+
+    fn stop_on_drop(&mut self, stop_on_drop: bool) {
+        self.stop_on_drop = stop_on_drop;
+    }
 }
 
 impl Drop for ConfigurableEnvironment {
     fn drop(&mut self) {
-        let _ =
-            tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(self.stop()));
+        if self.stop_on_drop {
+            let _ = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(self.stop())
+            });
+        }
     }
 }

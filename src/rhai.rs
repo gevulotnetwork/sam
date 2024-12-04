@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{Engine as RhaiEngine, EvalAltResult, Position, Scope};
+use rhai::{Engine as RhaiEngine, EvalAltResult, FnPtr, Position, Scope};
 use std::{path::PathBuf, sync::Arc};
 
 use crate::commands::register_commands;
@@ -13,13 +13,15 @@ pub struct Engine<E: Environment> {
     shared_state: Arc<Mutex<SharedState<E>>>,
 }
 
-impl<E: Environment + 'static> Engine<E> {
+impl<E: Environment + Clone + 'static> Engine<E> {
     pub fn new(env: E, module_dirs: &[String]) -> Self {
         let mut engine = Engine {
             engine: RhaiEngine::new(),
             scope: Scope::new(),
             shared_state: Arc::new(Mutex::new(SharedState::new(env))),
         };
+
+        engine.shared_state.lock().module_dirs = module_dirs.into();
 
         engine.engine.set_max_call_levels(256);
         engine.engine.set_max_expr_depths(256, 256);
@@ -97,5 +99,14 @@ impl<E: Environment + 'static> Engine<E> {
     pub fn get_report(&self) -> TestReport {
         let state = self.shared_state.lock();
         TestReport::from(&*state)
+    }
+
+    pub fn run_fn_ptr(
+        &mut self,
+        fn_ptr: FnPtr,
+        source_file: &str,
+    ) -> Result<(), Box<EvalAltResult>> {
+        let ast = self.engine.compile(source_file)?;
+        fn_ptr.call(&mut self.engine, &ast, ())
     }
 }

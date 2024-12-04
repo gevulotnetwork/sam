@@ -100,10 +100,6 @@ impl Config {
         serde_yaml::from_str(yaml)
     }
 
-    pub fn to_yaml(&self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(self)
-    }
-
     pub fn read_flags(&mut self, args: &ArgMatches) -> Result<(), Error> {
         if let Some(scripts) = args.get_many::<String>("script") {
             let all_scripts: Vec<String> = scripts.map(|s| s.to_string()).collect();
