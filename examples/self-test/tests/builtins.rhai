@@ -17,6 +17,12 @@ describe("Builtin Functions", || {
         assert(result == "test_value\n", "Environment variable was not set correctly");
     });
 
+    it("should be able to get environment variables", || {
+        set_env("TEST_VAR", "test_value");
+        let result = get_env("TEST_VAR");
+        assert(result == "test_value", "Environment variable was not set correctly");
+    });
+
     it("should be able to start and stop components", || {
         start_component("test-container");
         stop_component("test-container");

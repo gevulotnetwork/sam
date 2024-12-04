@@ -6,6 +6,9 @@ global:
     - examples/self-test/tests/builtins.rhai
     - examples/self-test/tests/components.rhai
     - examples/self-test/tests/stdlib.rhai
+    - examples/self-test/tests/encoding.rhai
+    - examples/self-test/tests/http.rhai
+    - examples/self-test/tests/fs.rhai
   module_dirs:
     - examples/self-test/modules
     - examples/self-test/modules2
