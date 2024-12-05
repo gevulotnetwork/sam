@@ -372,7 +372,7 @@ fn register_spawn<E: Environment + Clone + 'static>(
     let state_clone = state.clone();
     engine.register_fn(
         "wait_for_tasks",
-        move |ids: Array| -> Result<(), Box<EvalAltResult>> {
+        move |ids: Array| -> Result<Array, Box<EvalAltResult>> {
             spawn::wait_for_tasks(
                 state_clone.clone(),
                 ids.iter()
@@ -386,7 +386,7 @@ fn register_spawn<E: Environment + Clone + 'static>(
     let state_clone = state.clone();
     engine.register_fn(
         "wait_for_task",
-        move |id: i64| -> Result<(), Box<EvalAltResult>> {
+        move |id: i64| -> Result<Dynamic, Box<EvalAltResult>> {
             spawn::wait_for_task(state_clone.clone(), id)
         },
     );

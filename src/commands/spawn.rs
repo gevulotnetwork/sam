@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use rhai::{EvalAltResult, FnPtr, NativeCallContext, Position};
+use rhai::{Array, Dynamic, EvalAltResult, FnPtr, NativeCallContext, Position};
 use tokio::task::JoinHandle;
 
 use crate::{state::SharedState, Environment};
@@ -23,10 +23,9 @@ pub fn spawn_task<E: Environment + Clone + 'static>(
     log::debug!("Spawning task in file: {}", file);
     let mut engine = crate::Engine::new(env, &module_dirs);
     log::debug!("fresh engine created");
-    let out: JoinHandle<Result<(), Box<EvalAltResult>>> = tokio::task::spawn(async move {
+    let out: JoinHandle<Result<Dynamic, Box<EvalAltResult>>> = tokio::task::spawn(async move {
         log::debug!("running task in file: {}", file);
-        engine.run_fn_ptr(cb, &file)?;
-        Ok(())
+        engine.run_fn_ptr(cb, &file)
     });
     log::debug!("task spawned");
     let id = {
@@ -44,7 +43,7 @@ pub fn spawn_task<E: Environment + Clone + 'static>(
 pub fn wait_for_task<E: Environment + Clone + 'static>(
     state: Arc<Mutex<SharedState<E>>>,
     id: i64,
-) -> Result<(), Box<EvalAltResult>> {
+) -> Result<Dynamic, Box<EvalAltResult>> {
     let mut state = state.lock();
     let handle =
         state
@@ -54,22 +53,23 @@ pub fn wait_for_task<E: Environment + Clone + 'static>(
                 "No such task".into(),
                 Position::NONE,
             )))?;
-    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(handle))
+    let result = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(handle))
         .map_err(|e| {
             let msg = format!("Task failed: {}", e);
             state.spawn_handles.remove(&id);
             Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
         })??;
     state.spawn_handles.remove(&id);
-    Ok(())
+    Ok(result)
 }
 
 pub fn wait_for_tasks<E: Environment + Clone + 'static>(
     state: Arc<Mutex<SharedState<E>>>,
     ids: &[i64],
-) -> Result<(), Box<EvalAltResult>> {
+) -> Result<Array, Box<EvalAltResult>> {
+    let mut results = Array::new();
     for id in ids {
-        wait_for_task(state.clone(), *id)?;
+        results.push(wait_for_task(state.clone(), *id)?);
     }
-    Ok(())
+    Ok(results)
 }

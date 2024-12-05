@@ -102,6 +102,7 @@ describe("Builtin Functions", || {
                 print("Hello from the spawned task");
             });
             wait_for_task(id);
+            return
         });
 
         it("should be able to spawn multiple tasks", || {
@@ -118,6 +119,28 @@ describe("Builtin Functions", || {
             print("all spawned");
             print("waiting for tasks");
             wait_for_tasks(ids);
+            return
+        });
+
+        it("should be possible to get a result from a task", || {
+            let id = spawn_task(|| {
+                "Hello from the spawned task"
+            });
+            let result = wait_for_task(id);
+            assert(result == "Hello from the spawned task", "Result from task is incorrect");
+        });
+
+        it("should be possible to get many results from many tasks", || {
+            let ids = [];
+            for i in 0..10 {
+                let i = i;
+                ids.push(spawn_task(|| { i * 2 }));
+            }
+            let results = wait_for_tasks(ids);
+            assert(results.len() == 10, "Incorrect number of results");
+            for i in 0..10 {
+                assert::eq(results[i], i * 2, `Result from task ${i} is incorrect`);
+            }
         });
     });
 

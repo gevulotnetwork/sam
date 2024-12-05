@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{Engine as RhaiEngine, EvalAltResult, FnPtr, Position, Scope};
+use rhai::{Dynamic, Engine as RhaiEngine, EvalAltResult, FnPtr, Position, Scope};
 use std::{path::PathBuf, sync::Arc};
 
 use crate::commands::register_commands;
@@ -105,7 +105,7 @@ impl<E: Environment + Clone + 'static> Engine<E> {
         &mut self,
         fn_ptr: FnPtr,
         source_file: &str,
-    ) -> Result<(), Box<EvalAltResult>> {
+    ) -> Result<Dynamic, Box<EvalAltResult>> {
         let ast = self.engine.compile(source_file)?;
         fn_ptr.call(&mut self.engine, &ast, ())
     }

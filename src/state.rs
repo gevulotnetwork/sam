@@ -39,7 +39,7 @@ pub struct SharedState<E: Environment> {
     pub temp_dirs: Vec<tempdir::TempDir>,
     pub env: E,
     pub module_dirs: Vec<String>,
-    pub spawn_handles: HashMap<i64,JoinHandle<Result<(), Box<EvalAltResult>>>>,
+    pub spawn_handles: HashMap<i64,JoinHandle<Result<Dynamic, Box<EvalAltResult>>>>,
 }
 
 impl<E: Environment> SharedState<E> {
