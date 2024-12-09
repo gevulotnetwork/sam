@@ -75,6 +75,16 @@ describe("Example Test Suite", || {
 });
 ```
 
+3. Its using a module called `example` that is defined in the `tests/modules/example.rhai` file. It's a wrapper around the global `http_get` function.
+```js
+export const URL = "http://127.0.0.1:8080/hello.txt";
+
+// functions are always exported
+fn fetch(url) {
+    http_get(#{url: url});
+}
+```
+
 Example Output
 ------------
 
@@ -174,9 +184,27 @@ SAM provides several global functions that can be used in your test scripts:
 
 ### HTTP
 
-- `http_get(options: Dynamic) -> string` - Makes HTTP GET request
-- `http_post(options: Dynamic) -> string` - Makes HTTP POST request  
-- `http_head(options: Dynamic)` - Makes HTTP HEAD request
+The HTTP functions accept an options object with the following properties:
+
+- `url: string` - Required. The URL to make the request to
+- `params: object` - Optional. Query parameters to append to URL (e.g. `{"key": "value"}` becomes `?key=value`) 
+- `headers: object` - Optional. Headers to include in request (e.g. `{"Content-Type": "application/json"}`)
+- `body: string` - Optional. Request body (only for POST requests)
+
+
+Available functions:
+
+- `http_get(options: Dynamic) -> string` - Makes HTTP GET request and returns response body
+- `http_post(options: Dynamic) -> string` - Makes HTTP POST request and returns response body
+- `http_head(options: Dynamic)` - Makes HTTP HEAD request to check if resource exists
+
+Example:
+```js
+http_get(#{
+  url: "http://127.0.0.1:8080/hello.txt", 
+  headers: {"Content-Type": "application/json"}
+});
+```
 
 ### Math/Random
 
