@@ -28,22 +28,23 @@ sam run # This will run the tests
 ```yaml
 name: example-test
 global:
-  scripts:
+  scripts: # scripts to run
     - tests/cases/example.rhai
-  module_dirs:
+  module_dirs: # directories to load modules from
     - tests/modules
-  delay: null
-  repeat: null
-  filter: null
-  skip: null
-  reset_once: false
-  force: false
-  keep_running: false
+  delay: "1s" # delay between test runs
+  repeat: 2 # repeat the tests this many times
+  filter: "" # filter tests using a regular expression
+  skip: "" # skip tests using a regular expression
+  reset_once: false # reset the environment once before running tests
+  force: false # force the environment to be reset before running tests
+  keep_running: false # keep the environment running after tests complete
 
+# Components are processes, containers or pods that are started and stopped by SAM
 components:
   - name: caddy
-    type: container
-    start_by_default: true
+    type: container # type of component
+    start_by_default: true # start the component by default
     image: docker.io/library/caddy:latest
     command: ["caddy", "file-server", "--root", "/srv"]
     ports:
@@ -55,9 +56,10 @@ components:
     environment:
       - CADDY_ADMIN_PORT=2019
 
+# Reset is a list of commands to run when resetting the environment to restore it to a known state
 reset:
   - echo 'Reverts assets...'
-  - echo 'hello world' > tests/assets/hello.txt%    
+  - echo 'hello world' > tests/assets/hello.txt
 
 ```
 
@@ -88,7 +90,7 @@ fn fetch(url) {
 Example Output
 ------------
 
-```bash
+```text
  INFO  sam >                    _____ _____ _____
  INFO  sam >                   |   __|  _  |     |
  INFO  sam >                   |__   |     | | | |
@@ -190,7 +192,6 @@ The HTTP functions accept an options object with the following properties:
 - `params: object` - Optional. Query parameters to append to URL (e.g. `{"key": "value"}` becomes `?key=value`) 
 - `headers: object` - Optional. Headers to include in request (e.g. `{"Content-Type": "application/json"}`)
 - `body: string` - Optional. Request body (only for POST requests)
-
 
 Available functions:
 
