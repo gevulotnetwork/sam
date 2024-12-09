@@ -50,7 +50,10 @@ components:
       - host: ./tests/assets
         container: /srv
     environment:
-      - CADDY_ADMIN_PORT=2019"#;
+      - CADDY_ADMIN_PORT=2019
+reset:
+  - echo 'Reverts assets...'
+  - echo 'hello world' > tests/assets/hello.txt"#;
         fs::write(config_path, example_config).map_err(|e| Error::Config(e.to_string()))?;
     } else {
         log::info!("Config file {} already exists, skipping", config_path);
@@ -61,6 +64,7 @@ components:
     if !Path::new(module_path).exists() || sub_matches.get_flag("force") {
         log::info!("Creating example module {}", module_path);
         let example_module = r#"// Example test module
+
 // explicitly export constants
 export const URL = "http://127.0.0.1:8080/hello.txt";
 

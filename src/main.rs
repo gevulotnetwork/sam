@@ -49,6 +49,7 @@ fn setup_command_line_args() -> Command {
             clap::Arg::new("keep-running")
                 .short('k')
                 .long("keep-running")
+                .global(true)
                 .action(clap::ArgAction::SetTrue)
                 .help("Keep the environment running after the script has finished"),
         )
@@ -92,6 +93,7 @@ fn setup_command_line_args() -> Command {
         .arg(
             clap::Arg::new("reset-once")
                 .long("reset-once")
+                .default_value("false")
                 .action(clap::ArgAction::SetTrue)
                 .global(true)
                 .help("Reset the environment once before starting up"),
@@ -99,6 +101,7 @@ fn setup_command_line_args() -> Command {
         .arg(
             clap::Arg::new("force")
                 .long("force")
+                .default_value("false")
                 .action(clap::ArgAction::SetTrue)
                 .global(true)
                 .help("Force reset the environment"),
