@@ -3,9 +3,6 @@ SAM - Simple Automation Manager
 
 SAM is a simple yet powerful integration test framework designed for testing distributed systems and components. It provides a flexible way to define test environments, manage components, and write expressive tests using the Rhai scripting language.
 
-
-
-
 Key Features
 -----------
 - Define test environments in YAML with support for pods, containers and raw processes
@@ -21,49 +18,62 @@ Key Features
 
 Quick Start
 ----------
-0. Have some assets to play with:
+0. Init your test environment and run the first test!
 ```sh
-mkdir -p assets/www
-echo "Hello, World\!" > assets/www/index.html
+sam init # This will create a basic sam.yaml and a directory structure for your tests
+sam run # This will run the tests
 ```
 
-1. Create a config.yaml file to define your test environment and save it as `config.yaml`:
+1. Now look at your `sam.yaml` file to get a feeling for how it works:
 ```yaml
-name: "basic"
+name: example-test
+global:
+  scripts:
+    - tests/cases/example.rhai
+  module_dirs:
+    - tests/modules
+  delay: null
+  repeat: null
+  filter: null
+  skip: null
+  reset_once: false
+  force: false
+  keep_running: false
 
 components:
-  - name: "caddy"
+  - name: caddy
     type: container
     start_by_default: true
-    image: "caddy:latest"
+    image: docker.io/library/caddy:latest
+    command: ["caddy", "file-server", "--root", "/srv"]
     ports:
       - host: 8080
         container: 80
-    command: ["caddy", "file-server", "--root", "/srv/www"]
     volumes:
-      - host: "./assets/www"
-        container: "/srv/www"
+      - host: ./tests/assets
+        container: /srv
+    environment:
+      - CADDY_ADMIN_PORT=2019
 
-global:
-  scripts:
-    - "./tests.rhai"
+reset:
+  - echo 'Reverts assets...'
+  - echo 'hello world' > tests/assets/hello.txt%    
+
 ```
 
-2. Write your tests in Rhai using the describe/it syntax and save it as `tests.rhai`:
+2. See that it references the `example.rhai` script:
 ```js
-describe("Example Webserver", || {
-    it("serves files", || {
-        let response = exec("curl -s http://localhost:8080/index.html");
-        require(response == "Hello, World!\n", "Caddy did not serve the file");
+import "example" as example;
+
+describe("Example Test Suite", || {
+    it("should respond to HTTP requests", || {
+        // Make request to Caddy server
+        let response = example::fetch(example::URL);     
+        // Validate response
+        assert(response == "hello world", "Expected valid response from server");
     });
 });
 ```
-
-3. Run the tests:
-```sh
-sam
-```
-
 
 Example Output
 ------------
@@ -107,65 +117,75 @@ Example Output
  INFO  sam              > Run completed in 9s 489ms 729us 722ns
 ```
 
-Example Script
--------------
-
-```js
-import "module" as mod;
-
-describe("Example Webserver", || {
-    it("should be possible to start a component on demand", || {
-        start_component("caddy");
-        require(true, "Component did not start");
-    });
-
-    it("can serve 100 files", || {
-        for i in 0..100 {
-            let response = exec("curl -s http://localhost:8080/index.html");
-            require(response == "Hello, World!", "Caddy did not serve the expected file");
-        }
-    });
-});
-
-```
-
 Available Functions
 -----------------
 
 SAM provides several global functions that can be used in your test scripts:
 
-### Test Organization
+### Test Organization and Utilities
 
-- `describe(name: string, callback: function)` - Groups related tests together under a descriptive name. The callback contains the test cases.
+- `describe(name: string, callback: function)` - Groups related tests together under a descriptive name. The callback contains the test cases. Alias: `task`
+- `it(name: string, callback: function)` - Defines an individual test case with a descriptive name. The callback contains the test logic. Alias: `step`
+- `require(condition: bool, message: string)` - Asserts that a condition is true. If false, fails the test with the provided error message
+- `assert(condition: bool, message: string)` - Similar to require but continues test execution on failure
+- `diff(expected: string, actual: string) -> string` - Returns a diff between two strings
 
-- `it(name: string, callback: function)` - Defines an individual test case with a descriptive name. The callback contains the test logic.
+### System Commands
 
-- `require(condition: bool, message: string)` - Asserts that a condition is true. If false, fails the test with the provided error message.
+- `exec(command: string) -> string` - Executes a shell command and returns its stdout output
+- `start_component(name: string)` - Starts a component defined in the config file
+- `stop_component(name: string)` - Stops a running component
+- `set_env(key: string, value: string)` - Sets an environment variable
+- `get_env(key: string) -> string` - Gets value of environment variable
+- `sleep(duration: string)` - Pauses execution for specified duration (e.g. "1s", "500ms")
+- `wait_until(condition: function, timeout: string|int)` - Waits for condition to return true
+- `log(message: string)` - Logs a message to console
 
-### Command Execution
+### Key-Value Store
 
-- `exec(command: string) -> string` - Executes a shell command and returns its stdout output as a string. Throws an error if the command fails or returns a non-zero exit code.
+- `get(key: string) -> Dynamic` - Gets a value from the shared key-value store
+- `set(key: string, value: Dynamic)` - Sets a value in the shared key-value store
 
-### Environment Control
+### Encoding
 
-- `start_component(name: string)` - Starts a component defined in the config file by name.
+- `parse_json(json: string) -> Dynamic` - Parses JSON string into object
+- `parse_yaml(yaml: string) -> Dynamic` - Parses YAML string into object  
+- `parse_toml(toml: string) -> Dynamic` - Parses TOML string into object
+- `to_json(value: Dynamic) -> string` - Converts value to JSON string
+- `to_json_pretty(value: Dynamic) -> string` - Converts value to pretty-printed JSON
+- `to_yaml(value: Dynamic) -> string` - Converts value to YAML string
+- `to_toml(value: Dynamic) -> string` - Converts value to TOML string
 
-- `stop_component(name: string)` - Stops a running component by name.
+### File System
 
-- `set_env(key: string, value: string)` - Sets an environment variable that will be available to subsequent commands.
+- `temp_dir(prefix: string) -> string` - Creates temporary directory with prefix
+- `write_file(path: string, content: string)` - Writes content to file
+- `read_file(path: string) -> string` - Reads content from file
+- `mkdir(path: string)` - Creates directory
+- `remove(path: string)` - Removes file or directory
+- `ls(path: string) -> Array` - Lists directory contents
+- `file_exists(path: string) -> bool` - Checks if file exists
+- `stat(path: string) -> Dynamic` - Gets file metadata
+- `copy(src: string, dst: string)` - Copies file
+- `rename(src: string, dst: string)` - Renames/moves file
+- `is_dir(path: string) -> bool` - Checks if path is directory
+- `is_file(path: string) -> bool` - Checks if path is file
+- `absolute_path(path: string) -> string` - Gets absolute path
 
-### Flow Control
+### HTTP
 
-- `sleep(duration: string)` - Pauses execution for the specified duration. Duration should be in human-readable format (e.g. "1s", "500ms", "2m").
+- `http_get(options: Dynamic) -> string` - Makes HTTP GET request
+- `http_post(options: Dynamic) -> string` - Makes HTTP POST request  
+- `http_head(options: Dynamic)` - Makes HTTP HEAD request
 
-- `wait_until(condition: function, timeout: string|int)` - Waits until the condition function returns true or the timeout is reached. Timeout can be specified as:
-  - A human-readable duration string (e.g. "30s")
-  - Number of milliseconds as integer
+### Math/Random
 
-### Logging
+- `random_string(length: int) -> string` - Generates random string
+- `random_int(min: int, max: int) -> int` - Generates random integer
 
-- `log(message: string)` - Logs a message to the console with the current file and line number.
+### Concurrency
 
-
-
+- `spawn_task(callback: function) -> int` - Spawns async task, returns task ID
+- `wait_for_tasks(ids: Array) -> Array` - Waits for multiple tasks to complete
+- `wait_for_task(id: int) -> Dynamic` - Waits for single task to complete
 
