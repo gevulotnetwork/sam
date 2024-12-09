@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod environment;
+mod init;
 mod rhai;
 mod state;
 
@@ -41,6 +42,7 @@ fn setup_command_line_args() -> Command {
                 .short('s')
                 .long("script")
                 .action(clap::ArgAction::Append)
+                .global(true)
                 .help("Test script or directory"),
         )
         .arg(
@@ -54,13 +56,15 @@ fn setup_command_line_args() -> Command {
             clap::Arg::new("config")
                 .short('c')
                 .long("config")
-                .default_value("config.yaml")
+                .global(true)
+                .default_value("sam.yaml")
                 .help("Use a custom config file"),
         )
         .arg(
             clap::Arg::new("delay")
                 .short('d')
                 .long("delay")
+                .global(true)
                 .help("Delay the start of the tests"),
         )
         .arg(
@@ -68,61 +72,53 @@ fn setup_command_line_args() -> Command {
                 .short('r')
                 .long("repeat")
                 .value_parser(clap::value_parser!(u64))
+                .global(true)
                 .help("Repeat the script"),
         )
         .arg(
             clap::Arg::new("filter")
                 .short('f')
                 .long("filter")
+                .global(true)
                 .help("Filter the tests"),
         )
         .arg(
             clap::Arg::new("skip")
                 .short('x')
                 .long("skip")
+                .global(true)
                 .help("Skip the tests"),
         )
         .arg(
             clap::Arg::new("reset-once")
                 .long("reset-once")
                 .action(clap::ArgAction::SetTrue)
+                .global(true)
                 .help("Reset the environment once before starting up"),
         )
         .arg(
             clap::Arg::new("force")
                 .long("force")
                 .action(clap::ArgAction::SetTrue)
+                .global(true)
                 .help("Force reset the environment"),
         )
         .arg(
             clap::Arg::new("module-dir")
                 .long("module-dir")
+                .global(true)
                 .help("The directory containing the Rhai modules"),
         )
         .arg(
             clap::Arg::new("output")
                 .long("output")
                 .short('o')
+                .global(true)
                 .help("The file to output the test report to"),
         )
-        .subcommand(
-            Command::new("reset")
-                .about("Reset the e2e test environment")
-                .arg(
-                    clap::Arg::new("force")
-                        .short('f')
-                        .long("force")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Force reset the environment"),
-                )
-                .arg(
-                    clap::Arg::new("config")
-                        .short('c')
-                        .long("config")
-                        .default_value("config.yaml")
-                        .help("Use a custom config file"),
-                ),
-        )
+        .subcommand(Command::new("reset").about("Reset the e2e test environment"))
+        .subcommand(Command::new("init").about("Initialize the e2e test environment"))
+        .subcommand(Command::new("run").about("Run the tests"))
 }
 
 async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
@@ -228,7 +224,6 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
             .map_err(|e| Error::Other(e.to_string()))?;
     }
 
-
     if let Some(output) = sub_matches.get_one::<String>("output") {
         log::debug!("Writing test report to {}", output);
         let report = engine.get_report();
@@ -308,6 +303,8 @@ async fn main() -> Result<(), Error> {
 
     match matches.subcommand() {
         Some(("reset", sub_matches)) => reset_environment(sub_matches).await?,
+        Some(("init", sub_matches)) => init::init(sub_matches).await?,
+        Some(("run", sub_matches)) => run_environment(sub_matches).await?,
         None => run_environment(&matches).await?,
         _ => unreachable!("Invalid subcommand"),
     }
