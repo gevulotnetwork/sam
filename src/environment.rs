@@ -150,7 +150,7 @@ impl ConfigurableEnvironment {
                 // Add volumes if specified
                 for volume in &component.volumes {
                     cmd.arg("-v")
-                        .arg(format!("{}:{}", volume.host, volume.container));
+                        .arg(format!("{}:{}:z", volume.host, volume.container));
                 }
 
                 // Add environment variables if specified
