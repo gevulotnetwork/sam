@@ -122,7 +122,9 @@ fn setup_command_line_args() -> Command {
         .subcommand(Command::new("reset").about("Reset the e2e test environment"))
         .subcommand(Command::new("init").about("Initialize the e2e test environment"))
         .subcommand(Command::new("run").about("Run the tests"))
-        .subcommand(Command::new("generate-schema").about("Generate JSON schema for SAM config file"))
+        .subcommand(
+            Command::new("generate-schema").about("Generate JSON schema for SAM config file"),
+        )
 }
 
 async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
@@ -271,7 +273,10 @@ async fn reset_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
 fn generate_json_schema() -> Result<(), Error> {
     let generator = schemars::SchemaGenerator::default();
     let schema = generator.into_root_schema_for::<Config>();
-    println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&schema).map_err(|err| Error::Other(err.to_string()))?
+    );
     Ok(())
 }
 
