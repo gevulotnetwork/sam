@@ -130,6 +130,9 @@ fn setup_command_line_args() -> Command {
         .subcommand(Command::new("reset").about("Reset the e2e test environment"))
         .subcommand(Command::new("init").about("Initialize the e2e test environment"))
         .subcommand(Command::new("run").about("Run the tests"))
+        .subcommand(
+            Command::new("generate-schema").about("Generate JSON schema for SAM config file"),
+        )
 }
 
 async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
@@ -279,6 +282,16 @@ async fn reset_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
     Ok(())
 }
 
+fn generate_json_schema() -> Result<(), Error> {
+    let generator = schemars::SchemaGenerator::default();
+    let schema = generator.into_root_schema_for::<Config>();
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&schema).map_err(|err| Error::Other(err.to_string()))?
+    );
+    Ok(())
+}
+
 struct TimeLogger {
     start: std::time::Instant,
 }
@@ -320,6 +333,7 @@ async fn main() -> Result<(), Error> {
         Some(("reset", sub_matches)) => reset_environment(sub_matches).await?,
         Some(("init", sub_matches)) => init::init(sub_matches).await?,
         Some(("run", sub_matches)) => run_environment(sub_matches).await?,
+        Some(("generate-schema", _)) => generate_json_schema()?,
         None => run_environment(&matches).await?,
         _ => unreachable!("Invalid subcommand"),
     }

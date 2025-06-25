@@ -1,9 +1,11 @@
 use clap::ArgMatches;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[schemars(title = "SAM configuration file")]
 pub struct Config {
     pub name: String,
     pub base: Option<String>,
@@ -15,7 +17,7 @@ pub struct Config {
     pub global: Global,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
 pub struct Global {
     #[serde(default)]
     pub scripts: Vec<String>,
@@ -161,7 +163,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Component {
     pub name: String,
     #[serde(rename = "type")]
@@ -184,13 +186,13 @@ pub struct Component {
     pub volumes: Vec<Volume>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Port {
     pub host: u16,
     pub container: u16,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Container {
     pub name: String,
     pub image: String,
@@ -204,7 +206,7 @@ pub struct Container {
     pub network: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Volume {
     pub host: String,
     pub container: String,
