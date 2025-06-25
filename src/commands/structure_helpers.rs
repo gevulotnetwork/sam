@@ -86,12 +86,13 @@ pub fn describe<E: Environment>(
         }
         Err(e) => {
             let duration = start.elapsed();
+            let error = e.to_string().replace("\n", "\n ");
             print_indented(
                 &format!(
                     "{} \x1b[3m{}\x1b[0m \x1b[31mfailed\x1b[0m! 😭: {} ({})\n",
                     print_prefix,
                     msg,
-                    e,
+                    error,
                     humantime::format_duration(duration)
                 ),
                 indention_level - 1,
@@ -182,7 +183,7 @@ pub fn it<E: Environment>(
             {
                 print_indented(
                     &format!(
-                        " - \x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m",
+                        " - \x1b[3m{}\x1b[0m \x1b[31m(failed)\x1b[0m\n",
                         assertion.message
                     ),
                     state.indention_level,
