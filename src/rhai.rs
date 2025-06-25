@@ -86,6 +86,11 @@ impl<E: Environment + Clone + 'static> Engine<E> {
         state.skip_expression = Some(skip);
     }
 
+    pub fn set_fail_fast(&mut self, fail_fast: bool) {
+        let mut state = self.shared_state.lock();
+        state.fail_fast = fail_fast;
+    }
+
     pub fn get_error_count(&self) -> usize {
         let state = self.shared_state.lock();
         let error_count = state

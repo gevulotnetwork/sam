@@ -35,6 +35,8 @@ pub struct SharedState<E: Environment> {
     pub assertions: HashMap<TestId, Vec<Assertion>>,
     pub current_test_failed: bool,
     pub silent: bool,
+    /// Terminate the execution immediately when a test fails.
+    pub fail_fast: bool,
     pub kv_store: HashMap<String, Dynamic>,
     pub temp_dirs: Vec<tempdir::TempDir>,
     pub env: E,
@@ -56,6 +58,7 @@ impl<E: Environment> SharedState<E> {
             assertions: HashMap::new(),
             current_test_failed: false,
             silent: false,
+            fail_fast: true,
             kv_store: HashMap::new(),
             temp_dirs: vec![],
             module_dirs: vec![],
