@@ -26,6 +26,8 @@ pub struct Global {
     pub filter: Option<String>,
     pub skip: Option<String>,
     #[serde(default)]
+    pub no_fail_fast: bool,
+    #[serde(default)]
     pub reset_once: bool,
     #[serde(default)]
     pub force: bool,
@@ -133,6 +135,11 @@ impl Config {
             let dirs: Vec<String> = module_dirs.map(|s| s.to_string()).collect();
             log::debug!("Setting module directories from command line: {:?}", dirs);
             self.global.module_dirs = dirs;
+        }
+
+        if args.get_flag("no-fail-fast") {
+            log::debug!("Setting no_fail_fast from command line: true");
+            self.global.no_fail_fast = true;
         }
 
         if args.get_flag("keep-running") {
