@@ -77,6 +77,14 @@ fn setup_command_line_args() -> Command {
                 .help("Repeat the script"),
         )
         .arg(
+            clap::Arg::new("no-fail-fast")
+                .long("no-fail-fast")
+                .default_value("false")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+                .help("Run all tests regardless of failure"),
+        )
+        .arg(
             clap::Arg::new("filter")
                 .short('f')
                 .long("filter")
@@ -202,6 +210,10 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
         log::debug!("Setting skip: {}", skip);
         engine.set_skip(skip.to_string());
     }
+
+    let fail_fast = !global_cfg.no_fail_fast;
+    log::debug!("Setting fail-fast: {}", fail_fast);
+    engine.set_fail_fast(fail_fast);
 
     for i in 0..repeat {
         log::debug!("Starting iteration {} of {}", i + 1, repeat);

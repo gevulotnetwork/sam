@@ -190,6 +190,9 @@ pub fn it<E: Environment>(
                 );
             }
             state.error_count += 1;
+            if state.fail_fast {
+                return Err(e);
+            }
         }
     };
     state.current_test_stack.pop();
