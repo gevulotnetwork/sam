@@ -17,7 +17,7 @@ pub fn exec(command: &str) -> Result<String, Box<EvalAltResult>> {
         })?;
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        let msg = format!("Command failed with exit code {}: {}", output.status, error);
+        let msg = format!("Command failed with {}: {}", output.status, error);
         return Err(Box::new(EvalAltResult::ErrorRuntime(
             msg.into(),
             Position::NONE,
