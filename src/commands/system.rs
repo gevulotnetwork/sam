@@ -17,7 +17,7 @@ pub fn exec(command: &str) -> Result<String, Box<EvalAltResult>> {
         })?;
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        let msg = format!("Command failed with exit code {}: {}", output.status, error);
+        let msg = format!("Command failed with {}: {}", output.status, error);
         return Err(Box::new(EvalAltResult::ErrorRuntime(
             msg.into(),
             Position::NONE,
@@ -69,25 +69,27 @@ pub fn wait_until(
     timeout: i64,
 ) -> Result<(), Box<EvalAltResult>> {
     let start = std::time::Instant::now();
-    while let Ok(result) = condition.call_within_context::<bool>(&context, ()) {
-        if !result {
-            if start.elapsed().as_millis() > timeout as u128 {
-                let msg = "Timeout waiting for condition".to_string();
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                    msg.into(),
-                    Position::NONE,
-                )));
+    loop {
+        match condition.call_within_context::<bool>(&context, ()) {
+            // Condition evaluated to true -> stop waiting and return
+            Ok(true) => return Ok(()),
+            // Condition evaluated to false -> check timeout and wait if possible
+            Ok(false) => {
+                if start.elapsed().as_millis() > timeout as u128 {
+                    let msg = "Timeout waiting for condition".to_string();
+                    return Err(Box::new(EvalAltResult::ErrorRuntime(
+                        msg.into(),
+                        Position::NONE,
+                    )));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        } else {
-            return Ok(());
+            // Some error occurred inside condition call -> return it immediately
+            Err(err) => {
+                return Err(err);
+            }
         }
     }
-
-    Err(Box::new(EvalAltResult::ErrorRuntime(
-        "Failed to evaluate condition".into(),
-        Position::NONE,
-    )))
 }
 
 pub fn sleep_str(duration: &str) -> Result<(), Box<EvalAltResult>> {
@@ -104,19 +106,28 @@ pub async fn start_component<E: Environment + Clone>(
     state: Arc<Mutex<SharedState<E>>>,
     component: &str,
 ) -> Result<(), Box<EvalAltResult>> {
-    state.lock().env.start_component(component).await.map_err(|e| {
-        let msg = format!("Failed to start component: {}", e);
-        Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
-    })
+    state
+        .lock()
+        .env
+        .start_component(component)
+        .await
+        .map_err(|e| {
+            let msg = format!("Failed to start component: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
 }
 
 pub async fn stop_component<E: Environment + Clone>(
     state: Arc<Mutex<SharedState<E>>>,
     component: &str,
 ) -> Result<(), Box<EvalAltResult>> {
-    state.lock().env.stop_component(component).await.map_err(|e| {
-        let msg = format!("Failed to stop component: {}", e);
-        Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
-    })
+    state
+        .lock()
+        .env
+        .stop_component(component)
+        .await
+        .map_err(|e| {
+            let msg = format!("Failed to stop component: {}", e);
+            Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
+        })
 }
-
