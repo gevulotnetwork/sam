@@ -14,10 +14,18 @@ pub trait Environment: Send + Sync {
 
 pub struct MockEnvironment {}
 impl Environment for MockEnvironment {
-    async fn start(&mut self) -> Result<(), Error> { Ok(()) }
-    async fn stop(&mut self) -> Result<(), Error> { Ok(()) }
-    async fn start_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
-    async fn stop_component(&mut self, _component_name: &str) -> Result<(), Error> { Ok(()) }
+    async fn start(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+    async fn stop(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+    async fn start_component(&mut self, _component_name: &str) -> Result<(), Error> {
+        Ok(())
+    }
+    async fn stop_component(&mut self, _component_name: &str) -> Result<(), Error> {
+        Ok(())
+    }
     fn stop_on_drop(&mut self, _stop_on_drop: bool) {}
 }
 
@@ -300,6 +308,17 @@ impl ConfigurableEnvironment {
                 if command.len() > 1 {
                     // Add arguments
                     cmd.args(&command[1..]);
+                }
+
+                // Add environment variables if specified
+                for env in &component.environment {
+                    let mut parts = env.split('=');
+                    let key = parts.next().ok_or(Error::Config(format!(
+                        "Failed to find environment variable name in '{env}' for component {:?}",
+                        component
+                    )))?;
+                    let val = parts.collect::<Vec<_>>().join("");
+                    cmd.env(key, val);
                 }
 
                 cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
