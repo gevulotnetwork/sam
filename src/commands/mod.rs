@@ -182,6 +182,14 @@ fn register_system<E: Environment + Clone + 'static>(
             system::wait_until(context, condition, duration.as_millis() as i64)
         },
     );
+
+    let state_clone = state.clone();
+    engine.register_fn(
+        "data_dir",
+        move || -> Result<String, Box<EvalAltResult>> {
+            system::data_dir::<E>(state_clone.clone())
+        },
+    );
 }
 
 fn register_kv<E: Environment + Clone + 'static>(

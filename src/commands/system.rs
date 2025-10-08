@@ -131,3 +131,21 @@ pub async fn stop_component<E: Environment + Clone>(
             Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
         })
 }
+
+pub fn data_dir<E: Environment>(
+    state: Arc<Mutex<SharedState<E>>>,
+) -> Result<String, Box<EvalAltResult>> {
+    state
+        .lock()
+        .env
+        .data_dir()
+        .to_path_buf()
+        .to_str()
+        .ok_or_else(|| {
+            Box::new(EvalAltResult::ErrorRuntime(
+                "non-UTF-8 path".into(),
+                Position::NONE,
+            ))
+        })
+        .map(|str_| str_.to_string())
+}

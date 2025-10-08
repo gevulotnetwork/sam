@@ -11,6 +11,7 @@ pub trait Environment: Send + Sync {
     async fn start_component(&mut self, component_name: &str) -> Result<(), Error>;
     async fn stop_component(&mut self, component_name: &str) -> Result<(), Error>;
     fn stop_on_drop(&mut self, stop_on_drop: bool);
+    fn data_dir(&self) -> &Path;
 }
 
 pub struct MockEnvironment {}
@@ -28,6 +29,9 @@ impl Environment for MockEnvironment {
         Ok(())
     }
     fn stop_on_drop(&mut self, _stop_on_drop: bool) {}
+    fn data_dir(&self) -> &Path {
+        unreachable!()
+    }
 }
 
 #[derive(Clone)]
@@ -643,6 +647,10 @@ impl Environment for ConfigurableEnvironment {
 
     fn stop_on_drop(&mut self, stop_on_drop: bool) {
         self.stop_on_drop = stop_on_drop;
+    }
+
+    fn data_dir(&self) -> &Path {
+        self.dirs.data_local_dir()
     }
 }
 
