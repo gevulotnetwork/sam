@@ -453,6 +453,14 @@ impl ConfigurableEnvironment {
                     log::error!("Failed to kill process {}: {}", pid, e);
                     return Err(Error::Process(e.to_string()));
                 }
+                if let Err(e) = std::fs::remove_file(&pid_file_path) {
+                    log::error!(
+                        "Failed to remove PID file {}: {}",
+                        pid_file_path.display(),
+                        e
+                    );
+                    return Err(Error::Process(e.to_string()));
+                }
             }
             _ => {
                 return Err(Error::Config(format!(
