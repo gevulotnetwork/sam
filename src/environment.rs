@@ -1,5 +1,6 @@
-use std::{collections::HashSet, process::Stdio};
+use std::{collections::HashSet, path::Path, process::Stdio};
 
+use directories::ProjectDirs;
 use tokio::process::Command;
 
 use crate::{config::Config, Error};
@@ -10,6 +11,7 @@ pub trait Environment: Send + Sync {
     async fn start_component(&mut self, component_name: &str) -> Result<(), Error>;
     async fn stop_component(&mut self, component_name: &str) -> Result<(), Error>;
     fn stop_on_drop(&mut self, stop_on_drop: bool);
+    fn data_dir(&self) -> &Path;
 }
 
 pub struct MockEnvironment {}
@@ -27,6 +29,9 @@ impl Environment for MockEnvironment {
         Ok(())
     }
     fn stop_on_drop(&mut self, _stop_on_drop: bool) {}
+    fn data_dir(&self) -> &Path {
+        unreachable!()
+    }
 }
 
 #[derive(Clone)]
@@ -34,15 +39,27 @@ pub struct ConfigurableEnvironment {
     cfg: Config,
     is_running: HashSet<String>,
     stop_on_drop: bool,
+    dirs: ProjectDirs,
 }
 
 impl ConfigurableEnvironment {
-    pub fn new(cfg: &Config) -> Self {
-        Self {
+    pub fn new(cfg: &Config) -> Result<Self, Error> {
+        let dirs = ProjectDirs::from("", "gevulot", "sam")
+            .ok_or_else(|| Error::Other("failed to find HOME directory".to_string()))?;
+        let data_dir = dirs.data_local_dir();
+        log::debug!("Creating {}", data_dir.display());
+        std::fs::create_dir_all(data_dir).map_err(|err| {
+            Error::Other(format!(
+                "failed to create data directory {}: {err}",
+                data_dir.display()
+            ))
+        })?;
+        Ok(Self {
             cfg: cfg.clone(),
             is_running: HashSet::new(),
             stop_on_drop: true,
-        }
+            dirs,
+        })
     }
 
     async fn make_sure_network_exists(&self) -> Result<(), Error> {
@@ -327,19 +344,19 @@ impl ConfigurableEnvironment {
 
                 // Write PID to file
                 if let Some(pid) = child.id() {
-                    let runtime_dir =
-                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-                    let pid_file_path =
-                        std::path::Path::new(&runtime_dir).join(format!("{}.pid", component_name));
+                    let pid_file_path = self
+                        .dirs
+                        .data_local_dir()
+                        .join(format!("{}.pid", component_name));
                     std::fs::write(&pid_file_path, pid.to_string())
                         .map_err(|e| Error::Process(e.to_string()))?;
                 }
 
                 // Handle stdout
                 if let Some(mut stdout) = child.stdout {
-                    let runtime_dir =
-                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-                    let stdout_file = std::path::Path::new(&runtime_dir)
+                    let stdout_file = self
+                        .dirs
+                        .data_local_dir()
                         .join(format!("{}.stdout", component_name));
                     tokio::spawn(async move {
                         let mut file = tokio::fs::File::create(&stdout_file).await.unwrap();
@@ -349,9 +366,9 @@ impl ConfigurableEnvironment {
 
                 // Handle stderr
                 if let Some(mut stderr) = child.stderr {
-                    let runtime_dir =
-                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-                    let stderr_file = std::path::Path::new(&runtime_dir)
+                    let stderr_file = self
+                        .dirs
+                        .data_local_dir()
                         .join(format!("{}.stderr", component_name));
                     tokio::spawn(async move {
                         let mut file = tokio::fs::File::create(&stderr_file).await.unwrap();
@@ -424,10 +441,10 @@ impl ConfigurableEnvironment {
             }
             "process" => {
                 // Read PID from file
-                let runtime_dir =
-                    std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-                let pid_file_path =
-                    std::path::Path::new(&runtime_dir).join(format!("{}.pid", component_name));
+                let pid_file_path = self
+                    .dirs
+                    .data_local_dir()
+                    .join(format!("{}.pid", component_name));
                 let pid = std::fs::read_to_string(&pid_file_path)
                     .map_err(|e| Error::Process(e.to_string()))?;
 
@@ -438,6 +455,14 @@ impl ConfigurableEnvironment {
                     .output()
                 {
                     log::error!("Failed to kill process {}: {}", pid, e);
+                    return Err(Error::Process(e.to_string()));
+                }
+                if let Err(e) = std::fs::remove_file(&pid_file_path) {
+                    log::error!(
+                        "Failed to remove PID file {}: {}",
+                        pid_file_path.display(),
+                        e
+                    );
                     return Err(Error::Process(e.to_string()));
                 }
             }
@@ -622,6 +647,10 @@ impl Environment for ConfigurableEnvironment {
 
     fn stop_on_drop(&mut self, stop_on_drop: bool) {
         self.stop_on_drop = stop_on_drop;
+    }
+
+    fn data_dir(&self) -> &Path {
+        self.dirs.data_local_dir()
     }
 }
 

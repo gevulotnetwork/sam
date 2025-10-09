@@ -149,7 +149,7 @@ async fn run_environment(sub_matches: &ArgMatches) -> Result<(), Error> {
 
     let global_cfg = cfg.global.clone();
     log::debug!("Creating configurable environment");
-    let mut env = ConfigurableEnvironment::new(&cfg);
+    let mut env = ConfigurableEnvironment::new(&cfg)?;
 
     log::debug!("Starting environment");
     env.start().await?;
