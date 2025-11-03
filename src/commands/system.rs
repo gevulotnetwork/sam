@@ -38,7 +38,9 @@ pub fn log<E: Environment>(
     state: Arc<Mutex<SharedState<E>>>,
     msg: &str,
 ) -> Result<(), Box<EvalAltResult>> {
-    println!();
+    if log::log_enabled!(log::Level::Info) {
+        println!();
+    }
     let file = state
         .lock()
         .current_file
