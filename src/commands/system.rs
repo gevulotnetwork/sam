@@ -1,12 +1,15 @@
-use std::{process::Command, sync::Arc};
+use std::{env, process::Command, sync::Arc};
 
 use parking_lot::Mutex;
 use rhai::{EvalAltResult, FnPtr, NativeCallContext, Position};
 
 use crate::{state::SharedState, Environment};
 
+const DEFAULT_SHELL: &str = "sh";
+
 pub fn exec(command: &str) -> Result<String, Box<EvalAltResult>> {
-    let output = Command::new("sh")
+    let shell = env::var("SHELL").unwrap_or_else(|_| DEFAULT_SHELL.to_string());
+    let output = Command::new(shell)
         .arg("-c")
         .arg(command)
         .envs(std::env::vars())
